@@ -16,6 +16,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType, TabStopType, TabStopPosition } from "docx";
 import { saveAs } from 'file-saver';
+import { ThemeToggle } from "@/components/theme-toggle";
 
 
 type Character = {
@@ -231,11 +232,17 @@ export default function ScriptStylistPage() {
 
     toast({ title: "Generating PDF...", description: "This may take a moment."});
 
+    const body = document.body;
+    const originalBackgroundColor = body.style.backgroundColor;
+    body.style.backgroundColor = window.getComputedStyle(body).backgroundColor;
+
+
     html2canvas(scriptElement, {
       scale: 2,
       useCORS: true,
       backgroundColor: window.getComputedStyle(document.body).backgroundColor,
     }).then(canvas => {
+      document.body.style.backgroundColor = originalBackgroundColor;
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -265,6 +272,7 @@ export default function ScriptStylistPage() {
 
       pdf.save('styled_script.pdf');
     }).catch(err => {
+      document.body.style.backgroundColor = originalBackgroundColor;
       console.error("Error generating PDF:", err);
       toast({ title: "Error", description: "Failed to generate PDF.", variant: "destructive" });
     });
@@ -388,9 +396,12 @@ export default function ScriptStylistPage() {
   return (
     <div className="min-h-screen bg-background text-foreground font-body">
       <header className="p-4 border-b">
-        <div className="container mx-auto flex items-center gap-3">
-          <Clapperboard className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold font-headline">Script Stylist</h1>
+        <div className="container mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <Clapperboard className="h-7 w-7 text-primary" />
+                <h1 className="text-2xl font-bold font-headline">Script Stylist</h1>
+            </div>
+            <ThemeToggle />
         </div>
       </header>
       <main className="container mx-auto p-4 py-8">
@@ -517,4 +528,5 @@ export default function ScriptStylistPage() {
   );
 
     
+
 
