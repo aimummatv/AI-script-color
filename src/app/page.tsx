@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import mammoth from "mammoth";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Document, Packer, Paragraph, TextRun, ShadingType } from "docx";
+import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel } from "docx";
 import { saveAs } from 'file-saver';
 
 
@@ -257,7 +257,25 @@ export default function ScriptStylistPage() {
     toast({ title: "Generating DOCX...", description: "This may take a moment."});
 
     try {
-      const paragraphs: Paragraph[] = script.split('\n').map(line => {
+        const characterParagraphs = [
+            new Paragraph({ text: "Character List", heading: HeadingLevel.HEADING_1 }),
+            ...characters.map(char => new Paragraph({
+                children: [
+                    new TextRun({
+                        text: `${char.name} (${char.dialogueCount} dialogues)`,
+                        bold: true,
+                    }),
+                    new TextRun({
+                        text: ` - ${char.artistName || 'N/A'}`,
+                    }),
+                ],
+            })),
+            new Paragraph({ text: "" }), // Spacer
+            new Paragraph({ text: "Script", heading: HeadingLevel.HEADING_1 }),
+            new Paragraph({ text: "" }), // Spacer
+        ];
+
+      const scriptParagraphs: Paragraph[] = script.split('\n').map(line => {
         const char = getCharacterFromLine(line, characters);
         if (char) {
           return new Paragraph({
@@ -275,7 +293,7 @@ export default function ScriptStylistPage() {
       const doc = new Document({
         sections: [{
           properties: {},
-          children: paragraphs,
+          children: [...characterParagraphs, ...scriptParagraphs],
         }],
       });
 
@@ -301,6 +319,24 @@ export default function ScriptStylistPage() {
       return <p key={index} className="py-0.5">{line || " "}</p>;
     });
   }, [script, characters, getCharacterFromLine]);
+
+  const CharacterSummary = () => (
+    <div className="mb-6 p-4 border rounded-lg bg-secondary/30">
+        <h3 className="font-headline text-lg font-bold mb-3">Character List</h3>
+        <div className="space-y-2 text-sm">
+            {characters.map(char => (
+                <div key={char.name} className="grid grid-cols-[1fr_auto] gap-x-4 items-center">
+                    <div className="flex items-center gap-2 truncate">
+                       <div style={{ backgroundColor: `#${char.color}` }} className="h-4 w-4 rounded-full border shrink-0"></div>
+                       <span className="font-semibold truncate">{char.name}</span>
+                       <span className="text-muted-foreground truncate">{char.artistName && `- ${char.artistName}`}</span>
+                    </div>
+                    <div className="text-muted-foreground font-medium text-right">{char.dialogueCount} dialogues</div>
+                </div>
+            ))}
+        </div>
+    </div>
+  );
 
 
   return (
@@ -340,8 +376,11 @@ export default function ScriptStylistPage() {
                   <CardDescription>Review the script with character lines highlighted.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[500px] w-full rounded-lg border p-3 bg-muted/30">
-                    <div ref={scriptContentRef} className="text-sm whitespace-pre-wrap font-code">{highlightedScript}</div>
+                  <ScrollArea className="h-[600px] w-full rounded-lg border p-4 bg-muted/30">
+                    <div ref={scriptContentRef} className="text-sm whitespace-pre-wrap font-code">
+                      <CharacterSummary />
+                      {highlightedScript}
+                    </div>
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -425,3 +464,5 @@ export default function ScriptStylistPage() {
     </div>
   );
 }
+
+    
