@@ -554,9 +554,9 @@ export default function ScriptStylistPage() {
       if (char) {
         const colorIndex = HIGHLIGHT_COLORS.indexOf(char.color);
         const rgbaColor = HIGHLIGHT_COLORS_RGBA[colorIndex % HIGHLIGHT_COLORS_RGBA.length];
-        return <p key={index} style={{ backgroundColor: rgbaColor, padding: '2px 4px', borderRadius: '3px', margin: '2px 0' }}>{line}</p>;
+        return <p key={index} style={{ backgroundColor: rgbaColor, padding: '2px 4px', borderRadius: '3px', margin: '2px 0', lineHeight: 1.5 }}>{line}</p>;
       }
-      return <p key={index} className="py-0.5">{line || " "}</p>;
+      return <p key={index} className="py-0.5" style={{ lineHeight: 1.5 }}>{line || " "}</p>;
     });
   }, [script, characters, getCharacterFromLine]);
 
@@ -581,7 +581,7 @@ export default function ScriptStylistPage() {
                 </h3>
                 <div className="pl-4 border-l-4" style={{ borderColor: `#${char.color}`}}>
                     {dialogueLines.map((line, index) => (
-                        <p key={`${char.name}-${index}`} className="py-0.5">{line}</p>
+                        <p key={`${char.name}-${index}`} className="py-0.5" style={{ lineHeight: 1.5 }}>{line}</p>
                     ))}
                 </div>
             </div>
@@ -885,5 +885,3 @@ export default function ScriptStylistPage() {
     </div>
   );
 }
-
-    
