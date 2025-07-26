@@ -23,9 +23,6 @@ const IdentifyCharactersOutputSchema = z.object({
   characters: z
     .array(z.string())
     .describe('The list of identified characters in the script.'),
-  confidenceScores: z
-    .array(z.number())
-    .describe('The confidence scores for each identified character.'),
 });
 export type IdentifyCharactersOutput = z.infer<typeof IdentifyCharactersOutputSchema>;
 
@@ -39,7 +36,7 @@ const identifyCharactersPrompt = ai.definePrompt({
   output: {schema: IdentifyCharactersOutputSchema},
   prompt: `You are an expert in script analysis. Your task is to identify the characters present in the given script.
 
-  Please provide a list of characters and their corresponding confidence scores (between 0 and 1) based on your analysis. Ensure that the output is a JSON object containing 'characters' (an array of character names) and 'confidenceScores' (an array of confidence scores).
+  Please provide a list of characters. Ensure that the output is a JSON object containing 'characters' (an array of character names).
 
   Here is the script:
   {{script}}

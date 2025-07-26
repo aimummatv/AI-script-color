@@ -1,22 +1,21 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { generateCharacterConfidenceScores } from "@/ai/flows/generate-character-confidence-scores";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Wand2, Clapperboard, FileUp } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import mammoth from "mammoth";
 
 type Character = {
   name: string;
   color: string;
   confidence: number;
-  selected: boolean;
   artistName: string;
   dialogueCount: number;
 };
@@ -59,12 +58,12 @@ export default function ScriptStylistPage() {
     return undefined;
   }, []);
 
-  const calculateDialogueCounts = useCallback((scriptContent: string, charList: Character[]): Record<string, number> => {
+  const calculateDialogueCounts = useCallback((scriptContent: string, charList: Omit<Character, 'dialogueCount' | 'artistName' | 'color'>[]): Record<string, number> => {
     const counts: Record<string, number> = {};
     charList.forEach(c => counts[c.name] = 0);
     
     scriptContent.split('\n').forEach(line => {
-      const speakingChar = getCharacterFromLine(line, charList);
+      const speakingChar = getCharacterFromLine(line, charList.map(c => ({...c, dialogueCount: 0, artistName: '', color: ''})));
       if (speakingChar) {
         counts[speakingChar.name] = (counts[speakingChar.name] || 0) + 1;
       }
@@ -83,14 +82,13 @@ export default function ScriptStylistPage() {
     try {
       const result = await generateCharacterConfidenceScores({ script: scriptContent });
       if (result && result.characters) {
-        const dialogueCounts = calculateDialogueCounts(scriptContent, result.characters.map(c => ({...c, dialogueCount:0, artistName:'', color:'', selected:true})));
+        const dialogueCounts = calculateDialogueCounts(scriptContent, result.characters);
         const newCharacters = result.characters
         .sort((a, b) => b.confidence - a.confidence)
         .map((char, index) => ({
           name: char.name,
           confidence: char.confidence,
           color: HIGHLIGHT_COLORS[index % HIGHLIGHT_COLORS.length],
-          selected: true,
           artistName: "",
           dialogueCount: dialogueCounts[char.name] || 0,
         }));
@@ -110,12 +108,27 @@ export default function ScriptStylistPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        handleProcessScript(content);
-      };
-      reader.readAsText(file);
+      if (file.name.endsWith('.docx')) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const arrayBuffer = e.target?.result as ArrayBuffer;
+          try {
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            handleProcessScript(result.value);
+          } catch (error) {
+            console.error("Error parsing .docx file:", error);
+            toast({ title: "Error", description: "Could not read the .docx file.", variant: "destructive" });
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          handleProcessScript(content);
+        };
+        reader.readAsText(file);
+      }
     }
   };
 
@@ -126,13 +139,13 @@ export default function ScriptStylistPage() {
       toast({ title: "Character exists", description: "This character is already in the list.", variant: "destructive" });
       return;
     }
+    const dialogueCounts = calculateDialogueCounts(script, [{name: trimmedName, confidence: 1.0}]);
     const newCharacter: Character = {
       name: trimmedName,
       color: HIGHLIGHT_COLORS[characters.length % HIGHLIGHT_COLORS.length],
       confidence: 1.0,
-      selected: true,
       artistName: "",
-      dialogueCount: 0, // Will not be accurate until re-processed, but good for adding
+      dialogueCount: dialogueCounts[trimmedName] || 0,
     };
     setCharacters(prev => [...prev, newCharacter]);
     setNewCharacterName("");
@@ -141,38 +154,25 @@ export default function ScriptStylistPage() {
   const handleDeleteCharacter = (nameToDelete: string) => {
     setCharacters(prev => prev.filter(c => c.name !== nameToDelete));
   };
-
-  const handleToggleCharacter = (nameToToggle: string) => {
-    setCharacters(prev => prev.map(c => c.name === nameToToggle ? { ...c, selected: !c.selected } : c));
-  };
   
   const handleArtistNameChange = (characterName: string, artistName: string) => {
      setCharacters(prev => prev.map(c => c.name === characterName ? { ...c, artistName } : c));
   };
 
   const handleExport = () => {
-    const filteredCharacters = characters.filter(c => c.selected);
-    if (!script.trim() || filteredCharacters.length === 0) {
+    if (!script.trim() || characters.length === 0) {
       toast({ title: "Nothing to Export", description: "Please process a script and select characters first.", variant: "destructive" });
       return;
     }
     
     let contentToExport = "Character,Artist,Dialogue Count\n";
-    filteredCharacters.forEach(char => {
+    characters.forEach(char => {
         contentToExport += `"${char.name}","${char.artistName}",${char.dialogueCount}\n`;
     });
 
     contentToExport += "\n--- SCRIPT ---\n\n";
-
-    contentToExport += script.split('\n').map(line => {
-      const speakingChar = getCharacterFromLine(line, filteredCharacters);
-      return speakingChar ? line : null;
-    }).filter(Boolean).join('\n');
+    contentToExport += script;
     
-    if (!contentToExport.trim()) {
-      toast({ title: "No lines found", description: "No lines found for the selected characters." });
-      return;
-    }
     const blob = new Blob([contentToExport], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -183,6 +183,18 @@ export default function ScriptStylistPage() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+  
+  const highlightedScript = useMemo(() => {
+    if (!script) return null;
+    return script.split('\n').map((line, index) => {
+      const char = getCharacterFromLine(line, characters);
+      if (char) {
+        return <p key={index} style={{ backgroundColor: char.color, padding: '2px 4px', borderRadius: '3px', margin: '2px 0' }}>{line}</p>;
+      }
+      return <p key={index} className="py-0.5">{line || " "}</p>;
+    });
+  }, [script, characters, getCharacterFromLine]);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body">
@@ -205,20 +217,28 @@ export default function ScriptStylistPage() {
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileChange}
-                  accept=".txt,.md,.text"
+                  accept=".txt,.md,.text,.docx"
                   className="hidden"
                 />
                 <Button onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground">
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
                   {isLoading ? 'Processing...' : 'Upload Script'}
                 </Button>
-                {script && (
-                   <ScrollArea className="h-[500px] w-full rounded-lg border p-2 bg-muted/30 mt-4">
-                     <pre className="text-sm whitespace-pre-wrap font-code">{script}</pre>
-                   </ScrollArea>
-                )}
               </CardContent>
             </Card>
+            {script && (
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="font-headline text-xl">Styled Script</CardTitle>
+                  <CardDescription>Review the script with character lines highlighted.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[500px] w-full rounded-lg border p-3 bg-muted/30">
+                    <div className="text-sm whitespace-pre-wrap font-code">{highlightedScript}</div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
           </div>
           <aside className="lg:col-span-1 space-y-8 lg:sticky lg:top-8">
             <Card className="shadow-md">
