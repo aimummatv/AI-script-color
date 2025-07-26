@@ -8,9 +8,9 @@
  * - GenerateCharacterConfidenceScoresOutput - The return type for the generateCharacterConfidenceScores function.
  */
 
-import {genkit, Plugin} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { googleAI } from '@genkit-ai/googleai';
+import { z } from 'genkit';
 
 const GenerateCharacterConfidenceScoresInputSchema = z.object({
   script: z.string().describe('The script content to analyze.'),
@@ -32,7 +32,7 @@ export async function generateCharacterConfidenceScores(input: GenerateCharacter
   return generateCharacterConfidenceScoresFlow(input);
 }
 
-const prompt = {
+const prompt = ai.definePrompt({
   name: 'generateCharacterConfidenceScoresPrompt',
   input: {schema: GenerateCharacterConfidenceScoresInputSchema},
   output: {schema: GenerateCharacterConfidenceScoresOutputSchema},
@@ -53,24 +53,18 @@ Example:
   "confidence": 0.92
 }]
 `,
-};
+});
 
-const generateCharacterConfidenceScoresFlow = async (input: GenerateCharacterConfidenceScoresInput) => {
+const generateCharacterConfidenceScoresFlow = ai.defineFlow(
+  {
+    name: 'generateCharacterConfidenceScoresFlow',
+    inputSchema: GenerateCharacterConfidenceScoresInputSchema,
+    outputSchema: GenerateCharacterConfidenceScoresOutputSchema,
+  },
+  async (input) => {
     
-    const plugins: Plugin<any>[] = [];
-    if (input.apiKey) {
-        plugins.push(googleAI({apiKey: input.apiKey}));
-    } else {
-        plugins.push(googleAI());
-    }
+    const model = input.apiKey ? googleAI({apiKey: input.apiKey}).model('gemini-2.0-flash') : ai.model;
 
-    const ai = genkit({
-      plugins,
-      model: 'googleai/gemini-2.0-flash',
-    });
-
-    const definedPrompt = ai.definePrompt(prompt);
-    
-    const {output} = await definedPrompt(input);
+    const {output} = await prompt(input, {model});
     return output!;
-};
+});

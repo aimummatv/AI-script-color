@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview API Key Validation Flow.
@@ -7,9 +8,9 @@
  * - ValidateApiKeyOutput - The return type for the validateApiKey function.
  */
 
-import {genkit, Plugin} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { googleAI } from '@genkit-ai/googleai';
+import { z } from 'genkit';
 
 const ValidateApiKeyInputSchema = z.object({
   apiKey: z.string().describe('The Google AI API key to validate.'),
@@ -26,28 +27,30 @@ export async function validateApiKey(input: ValidateApiKeyInput): Promise<Valida
   return validateApiKeyFlow(input);
 }
 
-const validateApiKeyFlow = async (input: ValidateApiKeyInput): Promise<ValidateApiKeyOutput> => {
-  if (!input.apiKey) {
-    return { isValid: false, message: 'API Key is empty.' };
+const validateApiKeyFlow = ai.defineFlow(
+  {
+    name: 'validateApiKeyFlow',
+    inputSchema: ValidateApiKeyInputSchema,
+    outputSchema: ValidateApiKeyOutputSchema,
+  },
+  async (input) => {
+    if (!input.apiKey) {
+      return { isValid: false, message: 'API Key is empty.' };
+    }
+
+    try {
+      const model = googleAI({ apiKey: input.apiKey }).model('gemini-2.0-flash');
+
+      await ai.generate({
+        model,
+        prompt: 'Hello.',
+      });
+
+      return { isValid: true, message: 'API Key is valid.' };
+    } catch (error: any) {
+      console.error('API key validation failed:', error);
+      // The error from the provider might contain sensitive info, so we return a generic message.
+      return { isValid: false, message: 'API key validation failed. The key is likely invalid or has insufficient permissions.' };
+    }
   }
-
-  try {
-    const ai = genkit({
-      plugins: [googleAI({ apiKey: input.apiKey })],
-      model: 'googleai/gemini-2.0-flash',
-    });
-
-    const prompt = ai.definePrompt({
-      name: 'apiKeyValidationPrompt',
-      prompt: 'Hello.',
-    });
-
-    await prompt();
-
-    return { isValid: true, message: 'API Key is valid.' };
-  } catch (error: any) {
-    console.error('API key validation failed:', error);
-    // The error from the provider might contain sensitive info, so we return a generic message.
-    return { isValid: false, message: 'API key validation failed. The key is likely invalid or has insufficient permissions.' };
-  }
-};
+);
