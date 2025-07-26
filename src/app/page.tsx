@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useCallback, useRef } from "react";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileWord } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -413,7 +414,7 @@ export default function ScriptStylistPage() {
                   Export as PDF
                 </Button>
                  <Button onClick={handleExportDocx} className="w-full">
-                  <FileWord className="mr-2 h-4 w-4" />
+                  <FileCode className="mr-2 h-4 w-4" />
                   Export as DOCX
                 </Button>
               </CardContent>
