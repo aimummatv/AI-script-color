@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import mammoth from "mammoth";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 
 type Character = {
   name: string;
@@ -41,6 +44,7 @@ export default function ScriptStylistPage() {
   const [newCharacterName, setNewCharacterName] = useState("");
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scriptContentRef = useRef<HTMLDivElement>(null);
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
@@ -159,7 +163,7 @@ export default function ScriptStylistPage() {
      setCharacters(prev => prev.map(c => c.name === characterName ? { ...c, artistName } : c));
   };
 
-  const handleExport = () => {
+  const handleExportCsv = () => {
     if (!script.trim() || characters.length === 0) {
       toast({ title: "Nothing to Export", description: "Please process a script and select characters first.", variant: "destructive" });
       return;
@@ -182,6 +186,50 @@ export default function ScriptStylistPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportPdf = () => {
+    const scriptElement = scriptContentRef.current;
+    if (!scriptElement || !script.trim()) {
+      toast({ title: "Nothing to Export", description: "Please process a script first.", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Generating PDF...", description: "This may take a moment."});
+
+    html2canvas(scriptElement, {
+      scale: 2, // Higher scale for better quality
+      useCORS: true,
+      backgroundColor: window.getComputedStyle(document.body).backgroundColor,
+    }).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const ratio = canvasWidth / canvasHeight;
+      const width = pdfWidth - 20; // with margin
+      const height = width / ratio;
+      
+      let position = 10;
+      let heightLeft = height;
+
+      pdf.addImage(imgData, 'PNG', 10, position, width, height);
+      heightLeft -= (pdfHeight - 20);
+
+      while (heightLeft > 0) {
+        position -= (pdfHeight - 20);
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 10, position, width, height);
+        heightLeft -= (pdfHeight - 20);
+      }
+
+      pdf.save('styled_script.pdf');
+    }).catch(err => {
+      console.error("Error generating PDF:", err);
+      toast({ title: "Error", description: "Failed to generate PDF.", variant: "destructive" });
+    });
   };
   
   const highlightedScript = useMemo(() => {
@@ -234,7 +282,7 @@ export default function ScriptStylistPage() {
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[500px] w-full rounded-lg border p-3 bg-muted/30">
-                    <div className="text-sm whitespace-pre-wrap font-code">{highlightedScript}</div>
+                    <div ref={scriptContentRef} className="text-sm whitespace-pre-wrap font-code">{highlightedScript}</div>
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -297,10 +345,14 @@ export default function ScriptStylistPage() {
             </Card>
             <Card className="shadow-md">
               <CardHeader><CardTitle className="font-headline text-xl">Actions</CardTitle></CardHeader>
-              <CardContent>
-                <Button onClick={handleExport} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+              <CardContent className="space-y-3">
+                <Button onClick={handleExportCsv} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Download className="mr-2 h-4 w-4" />
                   Export as CSV
+                </Button>
+                <Button onClick={handleExportPdf} className="w-full">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Export as PDF
                 </Button>
               </CardContent>
             </Card>
@@ -310,3 +362,5 @@ export default function ScriptStylistPage() {
     </div>
   );
 }
+
+    
