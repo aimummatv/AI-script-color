@@ -250,62 +250,72 @@ export default function ScriptStylistPage() {
 
   const handleExportDocx = () => {
     if (!script.trim()) {
-      toast({ title: "Nothing to Export", description: "Please process a script first.", variant: "destructive" });
-      return;
+        toast({ title: "Nothing to Export", description: "Please process a script first.", variant: "destructive" });
+        return;
     }
 
-    toast({ title: "Generating DOCX...", description: "This may take a moment."});
+    toast({ title: "Generating DOCX...", description: "This may take a moment." });
 
     try {
         const characterParagraphs = [
             new Paragraph({ text: "Character List", heading: HeadingLevel.HEADING_1 }),
-            ...characters.map(char => new Paragraph({
-                children: [
-                    new TextRun({
-                        text: `${char.name} (${char.dialogueCount} dialogues)`,
-                        bold: true,
-                    }),
-                    new TextRun({
-                        text: ` - ${char.artistName || 'N/A'}`,
-                    }),
-                ],
-            })),
+            ...characters.map(char => {
+                const artistText = char.artistName ? ` - ${char.artistName}` : '';
+                const dialogueText = ` (${char.dialogueCount} dialogues)`;
+
+                return new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: char.name,
+                            bold: true,
+                        }),
+                        new TextRun({
+                            text: artistText,
+                        }),
+                        new TextRun({
+                            text: dialogueText,
+                        }),
+                    ],
+                });
+            }),
             new Paragraph({ text: "" }), // Spacer
             new Paragraph({ text: "Script", heading: HeadingLevel.HEADING_1 }),
             new Paragraph({ text: "" }), // Spacer
         ];
 
-      const scriptParagraphs: Paragraph[] = script.split('\n').map(line => {
-        const char = getCharacterFromLine(line, characters);
-        if (char) {
-          return new Paragraph({
-            children: [new TextRun(line)],
-            shading: {
-              type: ShadingType.CLEAR,
-              fill: char.color,
-              color: "auto",
-            },
-          });
-        }
-        return new Paragraph({children: [new TextRun(line)]});
-      });
 
-      const doc = new Document({
-        sections: [{
-          properties: {},
-          children: [...characterParagraphs, ...scriptParagraphs],
-        }],
-      });
+        const scriptParagraphs: Paragraph[] = script.split('\n').map(line => {
+            const char = getCharacterFromLine(line, characters);
+            if (char) {
+                return new Paragraph({
+                    children: [new TextRun(line)],
+                    shading: {
+                        type: ShadingType.CLEAR,
+                        fill: char.color,
+                        color: "auto",
+                    },
+                });
+            }
+            return new Paragraph({ children: [new TextRun(line)] });
+        });
 
-      Packer.toBlob(doc).then(blob => {
-        saveAs(blob, "styled_script.docx");
-        toast({ title: "Success!", description: "DOCX file generated."});
-      });
-    } catch(err) {
-      console.error("Error generating DOCX:", err);
-      toast({ title: "Error", description: "Failed to generate DOCX.", variant: "destructive" });
+        const doc = new Document({
+            sections: [{
+                properties: {},
+                children: [...characterParagraphs, ...scriptParagraphs],
+            }],
+        });
+
+        Packer.toBlob(doc).then(blob => {
+            saveAs(blob, "styled_script.docx");
+            toast({ title: "Success!", description: "DOCX file generated." });
+        });
+    } catch (err) {
+        console.error("Error generating DOCX:", err);
+        toast({ title: "Error", description: "Failed to generate DOCX.", variant: "destructive" });
     }
-  };
+};
+
   
   const highlightedScript = useMemo(() => {
     if (!script) return null;
@@ -464,5 +474,3 @@ export default function ScriptStylistPage() {
     </div>
   );
 }
-
-    
