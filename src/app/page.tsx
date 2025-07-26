@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit, Settings, KeyRound } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit, Settings, KeyRound, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import mammoth from "mammoth";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType, TabStopType, TabStopPosition } from "docx";
+import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType, TabStopType } from "docx";
 import { saveAs } from 'file-saver';
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
@@ -71,6 +71,7 @@ export default function ScriptStylistPage() {
   const [apiKey, setApiKey] = useState("");
   const [tempApiKey, setTempApiKey] = useState("");
   const [isTestingKey, setIsTestingKey] = useState(false);
+  const [isGroupedByCharacter, setIsGroupedByCharacter] = useState(false);
 
   useEffect(() => {
     const storedApiKey = localStorage.getItem("gemini_api_key");
@@ -116,11 +117,12 @@ export default function ScriptStylistPage() {
 
     for (const char of sortedCharList) {
         const charName = char.name.trim();
-        // A character is speaking if the line starts with their name and is followed by a non-alphanumeric character or nothing.
+        // A character is speaking if the line starts with their name (case-insensitive)
+        // and is followed by a non-alphanumeric character or nothing.
         // This prevents "CHARACTER A" from matching a line for "CHARACTER AB".
         if (trimmedLine.toUpperCase().startsWith(charName.toUpperCase())) {
             const nextCharIndex = charName.length;
-            if (trimmedLine.length === nextCharIndex || !/[a-zA-Z0-9]/.test(trimmedLine[nextCharIndex])) {
+            if (trimmedLine.length === nextCharIndex || !/^[a-zA-Z0-9]/.test(trimmedLine[nextCharIndex])) {
                  return char;
             }
         }
@@ -156,7 +158,7 @@ export default function ScriptStylistPage() {
         // Rule: A line is a character if it's in all caps, has no lowercase letters, and is relatively short.
         if (trimmedLine.length > 0 && trimmedLine.length < 50 && /^[^a-z]+$/.test(trimmedLine) && !trimmedLine.startsWith('(')) {
              // Exclude common scene headings and transitions
-            if (!/^(INT\.?\/EXT\.?|INT\.?|EXT\.?|FADE IN:|FADE OUT:|CUT TO:|CONTINUED|BACK TO:|DISSOLVE TO:)/.test(trimmedLine)) {
+            if (!/^(INT\.?\/EXT\.?|INT\.?|EXT\.?|FADE IN:|FADE OUT:|CUT TO:|CONTINUED|BACK TO:|DISSOLVE TO:)/i.test(trimmedLine)) {
                 // Remove trailing indicators like (V.O.) or (CONT'D) for cleaner identification
                 const cleanName = trimmedLine.replace(/\s*\(.*\)$/, '').trim();
                 if(cleanName) potentialCharacters.add(cleanName);
@@ -332,7 +334,20 @@ export default function ScriptStylistPage() {
     });
 
     contentToExport += "\n--- SCRIPT ---\n\n";
-    contentToExport += script;
+    
+    if (isGroupedByCharacter) {
+        characters.forEach(char => {
+            contentToExport += `\n--- ${char.name} ---\n`;
+            script.split('\n').forEach(line => {
+                const speakingChar = getCharacterFromLine(line, [char]);
+                if (speakingChar) {
+                    contentToExport += line + '\n';
+                }
+            });
+        });
+    } else {
+        contentToExport += script;
+    }
     
     const blob = new Blob([contentToExport], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -445,21 +460,50 @@ export default function ScriptStylistPage() {
             new Paragraph({ text: "" }), // Spacer
         ];
 
+        let scriptParagraphs: Paragraph[] = [];
 
-        const scriptParagraphs: Paragraph[] = script.split('\n').map(line => {
-            const char = getCharacterFromLine(line, characters);
-            if (char) {
-                return new Paragraph({
-                    children: [new TextRun(line)],
+        if (isGroupedByCharacter) {
+             characters.forEach(char => {
+                scriptParagraphs.push(new Paragraph({ 
+                    text: char.name, 
+                    heading: HeadingLevel.HEADING_2,
                     shading: {
                         type: ShadingType.CLEAR,
                         fill: char.color,
                         color: "auto",
                     },
+                }));
+
+                const dialogueLines = script.split('\n').filter(line => {
+                    const speakingChar = getCharacterFromLine(line, [char]);
+                    return !!speakingChar;
                 });
-            }
-            return new Paragraph({ children: [new TextRun(line)] });
-        });
+                
+                dialogueLines.forEach(line => {
+                    scriptParagraphs.push(new Paragraph({
+                        children: [new TextRun(line)],
+                    }));
+                });
+                scriptParagraphs.push(new Paragraph({ text: "" })); // Spacer
+            });
+
+        } else {
+            scriptParagraphs = script.split('\n').map(line => {
+                const char = getCharacterFromLine(line, characters);
+                if (char) {
+                    return new Paragraph({
+                        children: [new TextRun(line)],
+                        shading: {
+                            type: ShadingType.CLEAR,
+                            fill: char.color,
+                            color: "auto",
+                        },
+                    });
+                }
+                return new Paragraph({ children: [new TextRun(line)] });
+            });
+        }
+
 
         const doc = new Document({
             sections: [{
@@ -489,6 +533,35 @@ export default function ScriptStylistPage() {
         return <p key={index} style={{ backgroundColor: rgbaColor, padding: '2px 4px', borderRadius: '3px', margin: '2px 0' }}>{line}</p>;
       }
       return <p key={index} className="py-0.5">{line || " "}</p>;
+    });
+  }, [script, characters, getCharacterFromLine]);
+
+  const groupedScript = useMemo(() => {
+    if (!script || !characters.length) return null;
+
+    return characters.map(char => {
+        const colorIndex = HIGHLIGHT_COLORS.indexOf(char.color);
+        const rgbaColor = HIGHLIGHT_COLORS_RGBA[colorIndex % HIGHLIGHT_COLORS_RGBA.length];
+
+        const dialogueLines = script.split('\n').filter(line => {
+            const speakingChar = getCharacterFromLine(line, [char]);
+            return !!speakingChar;
+        });
+
+        if (dialogueLines.length === 0) return null;
+
+        return (
+            <div key={char.name} className="mb-6">
+                <h3 className="font-headline text-lg font-bold p-2 rounded-md mb-2" style={{ backgroundColor: rgbaColor }}>
+                    {char.name}
+                </h3>
+                <div className="pl-4 border-l-4" style={{ borderColor: `#${char.color}`}}>
+                    {dialogueLines.map((line, index) => (
+                        <p key={`${char.name}-${index}`} className="py-0.5">{line}</p>
+                    ))}
+                </div>
+            </div>
+        );
     });
   }, [script, characters, getCharacterFromLine]);
 
@@ -616,10 +689,19 @@ export default function ScriptStylistPage() {
                   <CardTitle className="font-headline text-xl">Styled Script</CardTitle>
                   <CardDescription>Review the script with character lines highlighted.</CardDescription>
                 </div>
-                <Button onClick={handleRandomizeColors} variant="outline" size="sm" disabled={characters.length === 0 || isLoading}>
-                  <Shuffle className="mr-2 h-4 w-4" />
-                  Randomize Colors
-                </Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                      <Switch id="group-by-char" checked={isGroupedByCharacter} onCheckedChange={setIsGroupedByCharacter} disabled={characters.length === 0 || isLoading}/>
+                      <Label htmlFor="group-by-char" className="flex items-center gap-2 cursor-pointer">
+                        <Users className="h-5 w-5 text-primary"/>
+                        <span className="font-medium">Group by Character</span>
+                      </Label>
+                  </div>
+                  <Button onClick={handleRandomizeColors} variant="outline" size="sm" disabled={characters.length === 0 || isLoading}>
+                    <Shuffle className="mr-2 h-4 w-4" />
+                    Randomize
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[600px] w-full rounded-lg border p-4 bg-muted/30">
@@ -629,7 +711,7 @@ export default function ScriptStylistPage() {
                     ) : script ? (
                       <>
                         <CharacterSummary />
-                        {highlightedScript}
+                        {isGroupedByCharacter ? groupedScript : highlightedScript}
                       </>
                     ) : (
                       <InitialScriptContentPlaceholder />
@@ -755,3 +837,5 @@ export default function ScriptStylistPage() {
     </div>
   );
 }
+
+    
