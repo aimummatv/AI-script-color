@@ -650,16 +650,18 @@ export default function ScriptStylistPage() {
                     ) : (
                       <div className="space-y-4">
                         {characters.map((char) => (
-                          <div key={char.name} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0"></div>
-                                <Label htmlFor={char.name} className="font-medium truncate cursor-pointer">{char.name}</Label>
-                                <Badge variant="secondary" className="ml-auto shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
-                              </div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 ml-2 shrink-0" onClick={() => handleDeleteCharacter(char.name)}>
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
+                           <div key={char.name} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50 transition-colors">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0"></div>
+                                    <Label htmlFor={char.name} className="font-medium truncate cursor-pointer flex-1">{char.name}</Label>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <Badge variant="secondary" className="shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteCharacter(char.name)}>
+                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                    </Button>
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                <Label htmlFor={`artist-${char.name}`} className="text-xs whitespace-nowrap">Artist:</Label>
