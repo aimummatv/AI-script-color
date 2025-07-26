@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import mammoth from "mammoth";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel } from "docx";
+import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, Tab, AlignmentType } from "docx";
 import { saveAs } from 'file-saver';
 
 
@@ -260,9 +260,6 @@ export default function ScriptStylistPage() {
         const characterParagraphs = [
             new Paragraph({ text: "Character List", heading: HeadingLevel.HEADING_1 }),
             ...characters.map(char => {
-                const artistText = char.artistName ? ` - ${char.artistName}` : '';
-                const dialogueText = ` (${char.dialogueCount} dialogues)`;
-
                 return new Paragraph({
                     children: [
                         new TextRun({
@@ -270,11 +267,15 @@ export default function ScriptStylistPage() {
                             bold: true,
                         }),
                         new TextRun({
-                            text: artistText,
+                            text: `\t- ${char.artistName || 'N/A'}`,
                         }),
                         new TextRun({
-                            text: dialogueText,
+                            text: `\t(${char.dialogueCount} dialogues)`,
                         }),
+                    ],
+                    tabStops: [
+                        { type: "left", position: 4000 },
+                        { type: "left", position: 7000 },
                     ],
                 });
             }),
