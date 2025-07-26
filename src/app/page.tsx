@@ -347,8 +347,8 @@ export default function ScriptStylistPage() {
   };
 
   const handleExportCsv = () => {
-    if (!script.trim() || characters.length === 0) {
-      toast({ title: "Nothing to Export", description: "Please process a script and select characters first.", variant: "destructive" });
+    if (!script.trim()) {
+      toast({ title: "Nothing to Export", description: "Please process a script first.", variant: "destructive" });
       return;
     }
     
@@ -369,6 +369,13 @@ export default function ScriptStylistPage() {
                 }
             });
         });
+        const unassignedLines = script.split('\n').filter(line => !getCharacterFromLine(line, characters) && line.trim() !== '');
+        if (unassignedLines.length > 0) {
+            contentToExport += `\n--- Unassigned Dialogue ---\n`;
+            unassignedLines.forEach(line => {
+                contentToExport += line + '\n';
+            });
+        }
     } else {
         contentToExport += script;
     }
@@ -510,6 +517,15 @@ export default function ScriptStylistPage() {
                 });
                 scriptParagraphs.push(new Paragraph({ text: "" }));
             });
+            const unassignedLines = script.split('\n').filter(line => !getCharacterFromLine(line, characters) && line.trim() !== '');
+            if (unassignedLines.length > 0) {
+                 scriptParagraphs.push(new Paragraph({ text: "Unassigned Dialogue", heading: HeadingLevel.HEADING_2 }));
+                 unassignedLines.forEach(line => {
+                    scriptParagraphs.push(new Paragraph({
+                        children: [new TextRun(line)],
+                    }));
+                 });
+            }
 
         } else {
             scriptParagraphs = script.split('\n').map(line => {
@@ -561,9 +577,9 @@ export default function ScriptStylistPage() {
   }, [script, characters, getCharacterFromLine]);
 
   const groupedScript = useMemo(() => {
-    if (!script || !characters.length) return null;
+    if (!script) return null;
 
-    return characters.map(char => {
+    const characterGroups = characters.map(char => {
         const colorIndex = HIGHLIGHT_COLORS.indexOf(char.color);
         const rgbaColor = HIGHLIGHT_COLORS_RGBA[colorIndex % HIGHLIGHT_COLORS_RGBA.length];
 
@@ -586,7 +602,33 @@ export default function ScriptStylistPage() {
                 </div>
             </div>
         );
+    }).filter(Boolean);
+
+    const unassignedDialogueLines = script.split('\n').filter(line => {
+        const trimmedLine = line.trim();
+        if (trimmedLine === '') return false;
+        const speakingChar = getCharacterFromLine(line, characters);
+        return !speakingChar;
     });
+
+    let unassignedGroup = null;
+    if (unassignedDialogueLines.length > 0) {
+        unassignedGroup = (
+            <div key="unassigned" className="mb-6">
+                <h3 className="font-headline text-lg font-bold p-2 rounded-md mb-2 bg-muted/80">
+                    Unassigned Dialogue
+                </h3>
+                <div className="pl-4 border-l-4 border-muted">
+                    {unassignedDialogueLines.map((line, index) => (
+                        <p key={`unassigned-${index}`} className="py-0.5" style={{ lineHeight: 1.5 }}>{line || " "}</p>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+    
+    return [...characterGroups, unassignedGroup];
+
   }, [script, characters, getCharacterFromLine]);
 
   const CharacterSummary = () => (
@@ -715,7 +757,7 @@ export default function ScriptStylistPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center space-x-2">
-                      <Switch id="group-by-char" checked={isGroupedByCharacter} onCheckedChange={setIsGroupedByCharacter} disabled={characters.length === 0 || isLoading}/>
+                      <Switch id="group-by-char" checked={isGroupedByCharacter} onCheckedChange={setIsGroupedByCharacter} disabled={!script || isLoading}/>
                       <Label htmlFor="group-by-char" className="flex items-center gap-2 cursor-pointer">
                         <Users className="h-5 w-5 text-primary"/>
                         <span className="font-medium">Group by Character</span>
