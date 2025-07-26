@@ -288,7 +288,7 @@ export default function ScriptStylistPage() {
                     },
                      tabStops: [
                         { type: TabStopType.CENTER, position: 4680 },
-                        { type: TabStopType.RIGHT, position: 9360 },
+                        { type: TabStopType.RIGHT, position: 7500 },
                     ],
                 });
             }),
