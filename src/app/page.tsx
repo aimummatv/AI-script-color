@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import mammoth from "mammoth";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, Tab, AlignmentType } from "docx";
+import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType } from "docx";
 import { saveAs } from 'file-saver';
 
 
@@ -229,16 +229,20 @@ export default function ScriptStylistPage() {
       const height = width / ratio;
       
       let position = 10;
-      let heightLeft = height;
+      let pageHeight = height;
+
+      if (pageHeight > (pdfHeight - 20)) {
+        pageHeight = pdfHeight - 20;
+      }
 
       pdf.addImage(imgData, 'PNG', 10, position, width, height);
-      heightLeft -= (pdfHeight - 20);
+      let heightLeft = height - pageHeight;
 
       while (heightLeft > 0) {
-        position -= (pdfHeight - 20);
+        position = -pageHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'PNG', 10, position, width, height);
-        heightLeft -= (pdfHeight - 20);
+        heightLeft -= pageHeight;
       }
 
       pdf.save('styled_script.pdf');
@@ -266,13 +270,20 @@ export default function ScriptStylistPage() {
                             text: char.name,
                             bold: true,
                         }),
+                        new TextRun("\t-\t"),
                         new TextRun({
-                            text: `\t- ${char.artistName || 'N/A'}`,
+                            text: char.artistName || 'N/A',
                         }),
+                        new TextRun("\t"),
                         new TextRun({
-                            text: `\t(${char.dialogueCount} dialogues)`,
+                            text: `(${char.dialogueCount} dialogues)`,
                         }),
                     ],
+                    shading: {
+                        type: ShadingType.CLEAR,
+                        fill: char.color,
+                        color: "auto",
+                    },
                     tabStops: [
                         { type: "left", position: 4000 },
                         { type: "left", position: 7000 },
@@ -335,16 +346,20 @@ export default function ScriptStylistPage() {
     <div className="mb-6 p-4 border rounded-lg bg-secondary/30">
         <h3 className="font-headline text-lg font-bold mb-3">Character List</h3>
         <div className="space-y-2 text-sm">
-            {characters.map(char => (
-                <div key={char.name} className="grid grid-cols-[1fr_auto] gap-x-4 items-center">
-                    <div className="flex items-center gap-2 truncate">
-                       <div style={{ backgroundColor: `#${char.color}` }} className="h-4 w-4 rounded-full border shrink-0"></div>
-                       <span className="font-semibold truncate">{char.name}</span>
-                       <span className="text-muted-foreground truncate">{char.artistName && `- ${char.artistName}`}</span>
+            {characters.map(char => {
+                 const colorIndex = HIGHLIGHT_COLORS.indexOf(char.color);
+                 const rgbaColor = HIGHLIGHT_COLORS_RGBA[colorIndex % HIGHLIGHT_COLORS_RGBA.length];
+                 return (
+                    <div key={char.name} className="grid grid-cols-[1fr_auto] gap-x-4 items-center p-2 rounded-md" style={{ backgroundColor: rgbaColor }}>
+                        <div className="flex items-center gap-2 truncate">
+                           <div style={{ backgroundColor: `#${char.color}` }} className="h-4 w-4 rounded-full border shrink-0"></div>
+                           <span className="font-semibold truncate">{char.name}</span>
+                           <span className="text-muted-foreground truncate">{char.artistName && `- ${char.artistName}`}</span>
+                        </div>
+                        <div className="text-right font-medium">{char.dialogueCount} dialogues</div>
                     </div>
-                    <div className="text-muted-foreground font-medium text-right">{char.dialogueCount} dialogues</div>
-                </div>
-            ))}
+                 );
+            })}
         </div>
     </div>
   );
