@@ -71,22 +71,11 @@ export default function ScriptStylistPage() {
     const sortedCharList = [...charList].sort((a, b) => b.name.length - a.name.length);
   
     for (const char of sortedCharList) {
-        // The full name as it appears in the character list (e.g., "CHARACTER A (V.O.)")
-        const fullName = char.name.trim();
-        // The base name without parentheticals (e.g., "CHARACTER A")
-        const baseName = fullName.split('(')[0].trim();
-        
-        // Prioritize matching the full name first, which is more specific.
-        // It's a match if the line starts with the character's name, followed by a non-alphanumeric character (like a colon, parenthesis) or end of line.
-        const fullNameRegex = new RegExp(`^${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9])`);
-        if (fullNameRegex.test(trimmedLine)) {
-            return char;
-        }
-
-        // If the full name doesn't match, check for the base name.
-        // This is useful for rule-based matching or when the script is inconsistent.
-        const baseNameRegex = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9])`);
-        if (baseNameRegex.test(trimmedLine)) {
+        const charName = char.name.trim();
+        // A character is speaking if the line starts with their name and is followed by a non-alphanumeric character (e.g., a colon, a space then a paren) or the end of the line.
+        // This prevents matching "CHARACTER A" for "CHARACTER AB"
+        const regex = new RegExp(`^${charName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9])`);
+        if (regex.test(trimmedLine)) {
             return char;
         }
     }
@@ -98,13 +87,17 @@ export default function ScriptStylistPage() {
     const counts: Record<string, number> = {};
     charList.forEach(c => counts[c.name] = 0);
     
-    scriptContent.split('\n').forEach(line => {
-      // We pass a mapped version of charList to satisfy the type constraints of getCharacterFromLine
-      const speakingChar = getCharacterFromLine(line, charList.map(c => ({...c, dialogueCount: 0, artistName: '', color: ''})));
-      if (speakingChar) {
-        counts[speakingChar.name] = (counts[speakingChar.name] || 0) + 1;
-      }
-    });
+    const mappedCharList = charList.map(c => ({...c, dialogueCount: 0, artistName: '', color: ''}));
+
+    if(scriptContent){
+        scriptContent.split('\n').forEach(line => {
+          const speakingChar = getCharacterFromLine(line, mappedCharList);
+          if (speakingChar) {
+            counts[speakingChar.name] = (counts[speakingChar.name] || 0) + 1;
+          }
+        });
+    }
+
     return counts;
   }, [getCharacterFromLine]);
 
@@ -118,7 +111,9 @@ export default function ScriptStylistPage() {
         if (trimmedLine.length > 0 && trimmedLine.length < 50 && /^[^a-z]+$/.test(trimmedLine) && !trimmedLine.startsWith('(')) {
              // Exclude common scene headings and transitions
             if (!/^(INT\.?\/EXT\.?|INT\.?|EXT\.?|FADE IN:|FADE OUT:|CUT TO:|CONTINUED|BACK TO:|DISSOLVE TO:)/.test(trimmedLine)) {
-                potentialCharacters.add(trimmedLine);
+                // Remove trailing indicators like (V.O.) or (CONT'D) for cleaner identification
+                const cleanName = trimmedLine.replace(/\s*\(.*\)$/, '').trim();
+                if(cleanName) potentialCharacters.add(cleanName);
             }
         }
     });
@@ -225,7 +220,11 @@ export default function ScriptStylistPage() {
       toast({ title: "Character exists", description: "This character is already in the list.", variant: "destructive" });
       return;
     }
-    const dialogueCounts = calculateDialogueCounts(script, [{name: trimmedName, confidence: 1.0}]);
+    
+    // We create a temporary list to calculate the dialogue count for just the new character
+    const tempCharListForCounting = [{ name: trimmedName, confidence: 1.0 }];
+    const dialogueCounts = calculateDialogueCounts(script, tempCharListForCounting);
+  
     const newCharacter: Character = {
       name: trimmedName,
       color: HIGHLIGHT_COLORS[characters.length % HIGHLIGHT_COLORS.length],
@@ -233,6 +232,8 @@ export default function ScriptStylistPage() {
       artistName: "",
       dialogueCount: dialogueCounts[trimmedName] || 0,
     };
+  
+    // Add the new character and re-sort the entire list by dialogue count
     setCharacters(prev => [...prev, newCharacter].sort((a,b) => b.dialogueCount - a.dialogueCount));
     setNewCharacterName("");
   };
@@ -251,7 +252,6 @@ export default function ScriptStylistPage() {
         return;
     };
     
-    // Create a copy and shuffle it
     const shuffledColors = [...HIGHLIGHT_COLORS].sort(() => Math.random() - 0.5);
     
     setCharacters(prev => 
@@ -298,18 +298,16 @@ export default function ScriptStylistPage() {
 
     toast({ title: "Generating PDF...", description: "This may take a moment."});
 
-    // Temporarily set body background for html2canvas to capture it correctly
     const body = document.body;
     const originalBackgroundColor = body.style.backgroundColor;
     body.style.backgroundColor = window.getComputedStyle(body).backgroundColor;
 
 
     html2canvas(scriptElement, {
-      scale: 2, // Higher scale for better quality
+      scale: 2, 
       useCORS: true,
       backgroundColor: window.getComputedStyle(document.body).backgroundColor,
     }).then(canvas => {
-      // Restore original body background
       document.body.style.backgroundColor = originalBackgroundColor;
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -318,7 +316,7 @@ export default function ScriptStylistPage() {
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
       const ratio = canvasWidth / canvasHeight;
-      const width = pdfWidth - 20; // with margin
+      const width = pdfWidth - 20; 
       const height = width / ratio;
       
       let position = 10;
@@ -381,8 +379,8 @@ export default function ScriptStylistPage() {
                         color: "auto",
                     },
                      tabStops: [
-                        { type: TabStopType.CENTER, position: 4680 },
-                        { type: TabStopType.RIGHT, position: 8000 },
+                        { type: TabStopType.CENTER, position: 4500 },
+                        { type: TabStopType.RIGHT, position: 8500 },
                     ],
                 });
             }),
@@ -608,3 +606,5 @@ export default function ScriptStylistPage() {
 
 }
  
+
+    
