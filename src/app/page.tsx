@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileWord } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import mammoth from "mammoth";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Document, Packer, Paragraph, TextRun, ShadingType } from "docx";
+import { saveAs } from 'file-saver';
 
 
 type Character = {
@@ -24,6 +26,19 @@ type Character = {
 };
 
 const HIGHLIGHT_COLORS = [
+  "a8e0ff",
+  "ffdab3",
+  "bdf5bd",
+  "ffc0cb",
+  "dda0dd",
+  "f0e68c",
+  "add8e6",
+  "ffb6c1",
+  "90ee90",
+  "fffacd",
+];
+
+const HIGHLIGHT_COLORS_RGBA = [
   "rgba(168, 224, 255, 0.6)",
   "rgba(255, 218, 179, 0.6)",
   "rgba(189, 245, 189, 0.6)",
@@ -198,7 +213,7 @@ export default function ScriptStylistPage() {
     toast({ title: "Generating PDF...", description: "This may take a moment."});
 
     html2canvas(scriptElement, {
-      scale: 2, // Higher scale for better quality
+      scale: 2,
       useCORS: true,
       backgroundColor: window.getComputedStyle(document.body).backgroundColor,
     }).then(canvas => {
@@ -231,13 +246,56 @@ export default function ScriptStylistPage() {
       toast({ title: "Error", description: "Failed to generate PDF.", variant: "destructive" });
     });
   };
+
+  const handleExportDocx = () => {
+    if (!script.trim()) {
+      toast({ title: "Nothing to Export", description: "Please process a script first.", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Generating DOCX...", description: "This may take a moment."});
+
+    try {
+      const paragraphs: Paragraph[] = script.split('\n').map(line => {
+        const char = getCharacterFromLine(line, characters);
+        if (char) {
+          return new Paragraph({
+            children: [new TextRun(line)],
+            shading: {
+              type: ShadingType.CLEAR,
+              fill: char.color,
+              color: "auto",
+            },
+          });
+        }
+        return new Paragraph({children: [new TextRun(line)]});
+      });
+
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: paragraphs,
+        }],
+      });
+
+      Packer.toBlob(doc).then(blob => {
+        saveAs(blob, "styled_script.docx");
+        toast({ title: "Success!", description: "DOCX file generated."});
+      });
+    } catch(err) {
+      console.error("Error generating DOCX:", err);
+      toast({ title: "Error", description: "Failed to generate DOCX.", variant: "destructive" });
+    }
+  };
   
   const highlightedScript = useMemo(() => {
     if (!script) return null;
     return script.split('\n').map((line, index) => {
       const char = getCharacterFromLine(line, characters);
       if (char) {
-        return <p key={index} style={{ backgroundColor: char.color, padding: '2px 4px', borderRadius: '3px', margin: '2px 0' }}>{line}</p>;
+        const colorIndex = HIGHLIGHT_COLORS.indexOf(char.color);
+        const rgbaColor = HIGHLIGHT_COLORS_RGBA[colorIndex % HIGHLIGHT_COLORS_RGBA.length];
+        return <p key={index} style={{ backgroundColor: rgbaColor, padding: '2px 4px', borderRadius: '3px', margin: '2px 0' }}>{line}</p>;
       }
       return <p key={index} className="py-0.5">{line || " "}</p>;
     });
@@ -298,11 +356,11 @@ export default function ScriptStylistPage() {
                 <div className="space-y-4">
                   <ScrollArea className="h-[350px] pr-3">
                     <div className="space-y-4">
-                      {characters.map((char) => (
+                      {characters.map((char, index) => (
                         <div key={char.name} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50 transition-colors">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div style={{ backgroundColor: char.color }} className="h-5 w-5 rounded-full border shrink-0"></div>
+                              <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0"></div>
                               <Label htmlFor={char.name} className="font-medium truncate cursor-pointer">{char.name}</Label>
                               <Badge variant="secondary" className="ml-auto">{(char.confidence * 100).toFixed(0)}%</Badge>
                             </div>
@@ -354,6 +412,10 @@ export default function ScriptStylistPage() {
                   <FileText className="mr-2 h-4 w-4" />
                   Export as PDF
                 </Button>
+                 <Button onClick={handleExportDocx} className="w-full">
+                  <FileWord className="mr-2 h-4 w-4" />
+                  Export as DOCX
+                </Button>
               </CardContent>
             </Card>
           </aside>
@@ -362,5 +424,3 @@ export default function ScriptStylistPage() {
     </div>
   );
 }
-
-    
