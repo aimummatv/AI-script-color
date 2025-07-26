@@ -116,7 +116,7 @@ export default function ScriptStylistPage() {
 
     for (const char of sortedCharList) {
         const charName = char.name.trim();
-        // A character is speaking if the line starts with their name and is followed by a non-alphabetic character or nothing.
+        // A character is speaking if the line starts with their name and is followed by a non-alphanumeric character or nothing.
         // This prevents "CHARACTER A" from matching a line for "CHARACTER AB".
         if (trimmedLine.toUpperCase().startsWith(charName.toUpperCase())) {
             const nextCharIndex = charName.length;
