@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ import html2canvas from 'html2canvas';
 import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType, TabStopType, TabStopPosition } from "docx";
 import { saveAs } from 'file-saver';
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Switch } from "@/components/ui/switch";
 
 
 type Character = {
@@ -62,6 +63,7 @@ export default function ScriptStylistPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scriptContentRef = useRef<HTMLDivElement>(null);
+  const [isAiEnabled, setIsAiEnabled] = useState(true);
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
@@ -143,34 +145,40 @@ export default function ScriptStylistPage() {
     setCharacters([]);
     setScript(scriptContent);
 
-    try {
-      // Try AI-based identification first
-      const result = await generateCharacterConfidenceScores({ script: scriptContent });
-      if (result && result.characters) {
-        const newChars = processIdentifiedCharacters(result.characters, scriptContent);
-        toast({ title: "Success!", description: `AI identified ${newChars.length} characters.` });
-      } else {
-        throw new Error("Invalid response from AI.");
+    const processWithFallback = () => {
+        const ruleBasedChars = identifyCharactersWithRules(scriptContent);
+        if(ruleBasedChars.length > 0){
+          const newChars = processIdentifiedCharacters(ruleBasedChars, scriptContent);
+          toast({ title: "Fallback Success!", description: `Identified ${newChars.length} characters with basic rules.` });
+        } else {
+          toast({ title: "No Characters Found", description: "Couldn't identify characters automatically. Please add them manually.", variant: "destructive" });
+        }
+    };
+    
+    if (isAiEnabled) {
+      try {
+        const result = await generateCharacterConfidenceScores({ script: scriptContent });
+        if (result && result.characters && result.characters.length > 0) {
+          const newChars = processIdentifiedCharacters(result.characters, scriptContent);
+          toast({ title: "Success!", description: `AI identified ${newChars.length} characters.` });
+        } else {
+          throw new Error("AI returned no characters.");
+        }
+      } catch (error) {
+        console.error("AI Error, falling back to rule-based method:", error);
+        toast({ 
+          title: "AI Unavailable", 
+          description: "Using fallback method to find characters. Results may be less accurate.",
+          variant: "default" 
+        });
+        processWithFallback();
       }
-    } catch (error) {
-      console.error("AI Error, falling back to rule-based method:", error);
-      toast({ 
-        title: "AI Unavailable", 
-        description: "Using fallback method to find characters. Results may be less accurate.",
-        variant: "default" 
-      });
-      // Fallback to rule-based identification
-      const ruleBasedChars = identifyCharactersWithRules(scriptContent);
-      if(ruleBasedChars.length > 0){
-        const newChars = processIdentifiedCharacters(ruleBasedChars, scriptContent);
-        toast({ title: "Fallback Success!", description: `Identified ${newChars.length} characters with basic rules.` });
-      } else {
-        toast({ title: "No Characters Found", description: "Couldn't identify characters automatically. Please add them manually.", variant: "destructive" });
-      }
-
-    } finally {
-      setIsLoading(false);
+    } else {
+      toast({ title: "AI Disabled", description: "Using rule-based method to find characters." });
+      processWithFallback();
     }
+
+    setIsLoading(false);
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -458,9 +466,20 @@ export default function ScriptStylistPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-8">
             <Card className="shadow-md">
-              <CardHeader>
-                <CardTitle className="font-headline text-xl">Your Script</CardTitle>
-                <CardDescription>Upload your script to automatically identify characters and their lines.</CardDescription>
+               <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="font-headline text-xl">Your Script</CardTitle>
+                  <CardDescription>Upload your script to automatically identify characters and their lines.</CardDescription>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={setIsAiEnabled} disabled={isLoading}/>
+                      <Label htmlFor="ai-toggle" className="flex items-center gap-2 cursor-pointer">
+                        <BrainCircuit className="h-5 w-5 text-primary"/>
+                        <span className="font-medium">Use AI</span>
+                      </Label>
+                    </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <Input
@@ -483,7 +502,7 @@ export default function ScriptStylistPage() {
                     <CardTitle className="font-headline text-xl">Styled Script</CardTitle>
                     <CardDescription>Review the script with character lines highlighted.</CardDescription>
                   </div>
-                  <Button onClick={handleRandomizeColors} variant="outline" size="sm">
+                  <Button onClick={handleRandomizeColors} variant="outline" size="sm" disabled={characters.length === 0}>
                     <Shuffle className="mr-2 h-4 w-4" />
                     Randomize Colors
                   </Button>
@@ -578,3 +597,4 @@ export default function ScriptStylistPage() {
   );
 
 }
+ 
