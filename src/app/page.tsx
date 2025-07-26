@@ -97,11 +97,11 @@ export default function ScriptStylistPage() {
       if (result.isValid) {
         toast({ title: "Success!", description: "Your API key is valid.", variant: "default" });
       } else {
-        throw new Error(result.message);
+        toast({ title: "Invalid API Key", description: result.message, variant: "destructive" });
       }
     } catch (error: any) {
       console.error("API Key validation error:", error);
-      toast({ title: "Invalid API Key", description: "The provided API key is not working. Please check it and try again.", variant: "destructive" });
+      toast({ title: "Invalid API Key", description: "An unexpected error occurred. Please check the console for details.", variant: "destructive" });
     } finally {
       setIsTestingKey(false);
     }
