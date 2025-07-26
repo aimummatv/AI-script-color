@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -179,6 +179,24 @@ export default function ScriptStylistPage() {
      setCharacters(prev => prev.map(c => c.name === characterName ? { ...c, artistName } : c));
   };
 
+  const handleRandomizeColors = () => {
+    if (characters.length === 0) {
+        toast({ title: "No Characters", description: "Please process a script first.", variant: "destructive" });
+        return;
+    };
+    
+    const shuffledColors = [...HIGHLIGHT_COLORS].sort(() => Math.random() - 0.5);
+    
+    setCharacters(prev => 
+        prev.map((char, index) => ({
+            ...char,
+            color: shuffledColors[index % shuffledColors.length],
+        }))
+    );
+
+    toast({ title: "Colors Randomized!", description: "Character highlight colors have been shuffled." });
+  };
+
   const handleExportCsv = () => {
     if (!script.trim() || characters.length === 0) {
       toast({ title: "Nothing to Export", description: "Please process a script and select characters first.", variant: "destructive" });
@@ -288,7 +306,7 @@ export default function ScriptStylistPage() {
                     },
                      tabStops: [
                         { type: TabStopType.CENTER, position: 4680 },
-                        { type: TabStopType.RIGHT, position: 7500 },
+                        { type: TabStopType.RIGHT, position: 8500 },
                     ],
                 });
             }),
@@ -399,9 +417,15 @@ export default function ScriptStylistPage() {
             </Card>
             {script && (
               <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle className="font-headline text-xl">Styled Script</CardTitle>
-                  <CardDescription>Review the script with character lines highlighted.</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="font-headline text-xl">Styled Script</CardTitle>
+                    <CardDescription>Review the script with character lines highlighted.</CardDescription>
+                  </div>
+                  <Button onClick={handleRandomizeColors} variant="outline" size="sm">
+                    <Shuffle className="mr-2 h-4 w-4" />
+                    Randomize Colors
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[600px] w-full rounded-lg border p-4 bg-muted/30">
@@ -493,3 +517,4 @@ export default function ScriptStylistPage() {
   );
 
     
+
