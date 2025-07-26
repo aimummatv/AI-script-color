@@ -3,11 +3,12 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { generateCharacterConfidenceScores } from "@/ai/flows/generate-character-confidence-scores";
+import { validateApiKey } from "@/ai/flows/validate-api-key";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit, Settings } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit, Settings, KeyRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +69,7 @@ export default function ScriptStylistPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [tempApiKey, setTempApiKey] = useState("");
+  const [isTestingKey, setIsTestingKey] = useState(false);
 
   useEffect(() => {
     const storedApiKey = localStorage.getItem("gemini_api_key");
@@ -84,6 +86,27 @@ export default function ScriptStylistPage() {
     toast({ title: "API Key Saved", description: "Your Google AI API key has been saved locally." });
   };
 
+  const handleTestApiKey = async () => {
+    if (!tempApiKey) {
+      toast({ title: "API Key Missing", description: "Please enter an API key to test.", variant: "destructive" });
+      return;
+    }
+    setIsTestingKey(true);
+    try {
+      const result = await validateApiKey({ apiKey: tempApiKey });
+      if (result.isValid) {
+        toast({ title: "Success!", description: "Your API key is valid.", variant: "default" });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error: any) {
+      console.error("API Key validation error:", error);
+      toast({ title: "Invalid API Key", description: "The provided API key is not working. Please check it and try again.", variant: "destructive" });
+    } finally {
+      setIsTestingKey(false);
+    }
+  };
+
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
@@ -94,10 +117,9 @@ export default function ScriptStylistPage() {
         const charName = char.name.trim();
         // A character is speaking if the line starts with their name and is followed by a non-alphabetic character or nothing.
         // This prevents "CHARACTER A" from matching a line for "CHARACTER AB".
-        const regex = new RegExp(`^${charName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(\\s*\\(.*\\)|:|$)`, 'i');
-        if (trimmedLine.startsWith(charName)) {
-            // Check for a perfect match or ensure the next character is not a letter, to avoid partial matches.
-            if (trimmedLine.length === charName.length || !/[a-zA-Z]/.test(trimmedLine[charName.length])) {
+        if (trimmedLine.toUpperCase().startsWith(charName.toUpperCase())) {
+            const nextCharIndex = charName.length;
+            if (trimmedLine.length === nextCharIndex || !/[a-zA-Z0-9]/.test(trimmedLine[nextCharIndex])) {
                  return char;
             }
         }
@@ -413,7 +435,7 @@ export default function ScriptStylistPage() {
                     },
                      tabStops: [
                         { type: TabStopType.CENTER, position: 4500 },
-                        { type: TabStopType.RIGHT, position: 7500 },
+                        { type: TabStopType.RIGHT, position: 7000 },
                     ],
                 });
             }),
@@ -663,7 +685,11 @@ export default function ScriptStylistPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="sm:justify-between">
+            <Button onClick={handleTestApiKey} variant="outline" disabled={isTestingKey}>
+              {isTestingKey ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+              {isTestingKey ? 'Testing...' : 'Test Key'}
+            </Button>
             <Button onClick={handleSaveApiKey}>Save Key</Button>
           </DialogFooter>
         </DialogContent>
