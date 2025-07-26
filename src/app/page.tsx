@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { generateCharacterConfidenceScores } from "@/ai/flows/generate-character-confidence-scores";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,7 @@ import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, Alignm
 import { saveAs } from 'file-saver';
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 
 type Character = {
@@ -64,6 +65,25 @@ export default function ScriptStylistPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scriptContentRef = useRef<HTMLDivElement>(null);
   const [isAiEnabled, setIsAiEnabled] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [tempApiKey, setTempApiKey] = useState("");
+
+  useEffect(() => {
+    const storedApiKey = localStorage.getItem("gemini_api_key");
+    if (storedApiKey) {
+      setApiKey(storedApiKey);
+      setTempApiKey(storedApiKey);
+    }
+  }, []);
+
+  const handleSaveApiKey = () => {
+    setApiKey(tempApiKey);
+    localStorage.setItem("gemini_api_key", tempApiKey);
+    setIsSettingsOpen(false);
+    toast({ title: "API Key Saved", description: "Your Google AI API key has been saved locally." });
+  };
+
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
@@ -72,10 +92,13 @@ export default function ScriptStylistPage() {
 
     for (const char of sortedCharList) {
         const charName = char.name.trim();
+        // A character is speaking if the line starts with their name and is followed by a non-alphabetic character or nothing.
+        // This prevents "CHARACTER A" from matching a line for "CHARACTER AB".
+        const regex = new RegExp(`^${charName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(\\s*\\(.*\\)|:|$)`, 'i');
         if (trimmedLine.startsWith(charName)) {
-            // Check if it's a perfect match or followed by a non-alphabetic character
+            // Check for a perfect match or ensure the next character is not a letter, to avoid partial matches.
             if (trimmedLine.length === charName.length || !/[a-zA-Z]/.test(trimmedLine[charName.length])) {
-                return char;
+                 return char;
             }
         }
     }
@@ -161,8 +184,18 @@ export default function ScriptStylistPage() {
     };
     
     if (isAiEnabled) {
+      if (!apiKey) {
+        toast({
+            title: "API Key Required",
+            description: "Please set your Google AI API key in the settings to use AI features.",
+            variant: "destructive",
+        });
+        setIsLoading(false);
+        processWithFallback();
+        return;
+      }
       try {
-        const result = await generateCharacterConfidenceScores({ script: scriptContent });
+        const result = await generateCharacterConfidenceScores({ script: scriptContent, apiKey });
         if (result && result.characters && result.characters.length > 0) {
           const newChars = processIdentifiedCharacters(result.characters, scriptContent);
           toast({ title: "Success!", description: `AI identified ${newChars.length} characters.` });
@@ -467,7 +500,13 @@ export default function ScriptStylistPage() {
                 <Clapperboard className="h-7 w-7 text-primary" />
                 <h1 className="text-2xl font-bold font-headline">Script Stylist</h1>
             </div>
-            <ThemeToggle />
+             <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
+                    <Settings className="h-5 w-5" />
+                    <span className="sr-only">Settings</span>
+                </Button>
+                <ThemeToggle />
+            </div>
         </div>
       </header>
       <main className="container mx-auto p-4 py-8">
@@ -601,11 +640,34 @@ export default function ScriptStylistPage() {
           </aside>
         </div>
       </main>
+
+       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>AI Settings</DialogTitle>
+            <DialogDescription>
+              Enter your Google AI API key to enable AI-powered features. Your key is saved securely in your browser's local storage and is never shared.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="api-key-input" className="text-right">
+                API Key
+              </Label>
+              <Input
+                id="api-key-input"
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+                className="col-span-3"
+                placeholder="Enter your Google AI API Key"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSaveApiKey}>Save Key</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-
 }
- 
-    
-
-    

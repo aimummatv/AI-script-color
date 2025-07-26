@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Character identification flow with confidence scores.
@@ -7,11 +8,13 @@
  * - GenerateCharacterConfidenceScoresOutput - The return type for the generateCharacterConfidenceScores function.
  */
 
-import {ai} from '@/ai/genkit';
+import {genkit, Plugin} from 'genkit';
+import {googleAI} from '@genkit-ai/googleai';
 import {z} from 'genkit';
 
 const GenerateCharacterConfidenceScoresInputSchema = z.object({
   script: z.string().describe('The script content to analyze.'),
+  apiKey: z.string().optional().describe('The Google AI API key.'),
 });
 export type GenerateCharacterConfidenceScoresInput = z.infer<typeof GenerateCharacterConfidenceScoresInputSchema>;
 
@@ -29,7 +32,7 @@ export async function generateCharacterConfidenceScores(input: GenerateCharacter
   return generateCharacterConfidenceScoresFlow(input);
 }
 
-const prompt = ai.definePrompt({
+const prompt = {
   name: 'generateCharacterConfidenceScoresPrompt',
   input: {schema: GenerateCharacterConfidenceScoresInputSchema},
   output: {schema: GenerateCharacterConfidenceScoresOutputSchema},
@@ -50,18 +53,24 @@ Example:
   "confidence": 0.92
 }]
 `,
-});
+};
 
-const generateCharacterConfidenceScoresFlow = ai.defineFlow(
-  {
-    name: 'generateCharacterConfidenceScoresFlow',
-    inputSchema: GenerateCharacterConfidenceScoresInputSchema,
-    outputSchema: GenerateCharacterConfidenceScoresOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
-
+const generateCharacterConfidenceScoresFlow = async (input: GenerateCharacterConfidenceScoresInput) => {
     
+    const plugins: Plugin<any>[] = [];
+    if (input.apiKey) {
+        plugins.push(googleAI({apiKey: input.apiKey}));
+    } else {
+        plugins.push(googleAI());
+    }
+
+    const ai = genkit({
+      plugins,
+      model: 'googleai/gemini-2.0-flash',
+    });
+
+    const definedPrompt = ai.definePrompt(prompt);
+    
+    const {output} = await definedPrompt(input);
+    return output!;
+};
