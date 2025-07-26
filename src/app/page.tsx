@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import mammoth from "mammoth";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType } from "docx";
+import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType, TabStopType, TabStopPosition } from "docx";
 import { saveAs } from 'file-saver';
 
 
@@ -264,29 +264,31 @@ export default function ScriptStylistPage() {
         const characterParagraphs = [
             new Paragraph({ text: "Character List", heading: HeadingLevel.HEADING_1 }),
             ...characters.map(char => {
+                const textRuns = [
+                    new TextRun({
+                        text: char.name,
+                        bold: true,
+                    }),
+                    new TextRun({ text: "\t-\t", }),
+                    new TextRun({
+                        text: char.artistName || '',
+                    }),
+                    new TextRun({ text: "\t", }),
+                     new TextRun({
+                        text: `(${char.dialogueCount} dialogues)`,
+                    }),
+                ];
+
                 return new Paragraph({
-                    children: [
-                        new TextRun({
-                            text: char.name,
-                            bold: true,
-                        }),
-                        new TextRun("\t-\t"),
-                        new TextRun({
-                            text: char.artistName || 'N/A',
-                        }),
-                        new TextRun("\t"),
-                        new TextRun({
-                            text: `(${char.dialogueCount} dialogues)`,
-                        }),
-                    ],
+                    children: textRuns,
                     shading: {
                         type: ShadingType.CLEAR,
                         fill: char.color,
                         color: "auto",
                     },
                     tabStops: [
-                        { type: "left", position: 4000 },
-                        { type: "left", position: 7000 },
+                        { type: TabStopType.LEFT, position: TabStopPosition.MAX / 2 },
+                        { type: TabStopType.RIGHT, position: TabStopPosition.MAX },
                     ],
                 });
             }),
