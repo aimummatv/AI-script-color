@@ -548,6 +548,14 @@ export default function ScriptStylistPage() {
     </div>
   );
 
+  const InitialScriptContentPlaceholder = () => (
+    <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+        <FileText className="h-16 w-16 mb-4 text-primary/20" />
+        <h3 className="font-headline text-lg font-semibold">Ready for your script</h3>
+        <p className="max-w-xs">Upload a file or paste your script to get started. The styled version will appear here.</p>
+    </div>
+);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body">
@@ -599,34 +607,34 @@ export default function ScriptStylistPage() {
                 </Button>
               </CardContent>
             </Card>
-            {script && (
-              <Card className="shadow-md">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="font-headline text-xl">Styled Script</CardTitle>
-                    <CardDescription>Review the script with character lines highlighted.</CardDescription>
+            <Card className="shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="font-headline text-xl">Styled Script</CardTitle>
+                  <CardDescription>Review the script with character lines highlighted.</CardDescription>
+                </div>
+                <Button onClick={handleRandomizeColors} variant="outline" size="sm" disabled={characters.length === 0 || isLoading}>
+                  <Shuffle className="mr-2 h-4 w-4" />
+                  Randomize Colors
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[600px] w-full rounded-lg border p-4 bg-muted/30">
+                  <div ref={scriptContentRef} className="text-sm whitespace-pre-wrap font-code h-full">
+                    {isLoading ? (
+                      <ScriptContentSkeleton />
+                    ) : script ? (
+                      <>
+                        <CharacterSummary />
+                        {highlightedScript}
+                      </>
+                    ) : (
+                      <InitialScriptContentPlaceholder />
+                    )}
                   </div>
-                  <Button onClick={handleRandomizeColors} variant="outline" size="sm" disabled={characters.length === 0 || isLoading}>
-                    <Shuffle className="mr-2 h-4 w-4" />
-                    Randomize Colors
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[600px] w-full rounded-lg border p-4 bg-muted/30">
-                    <div ref={scriptContentRef} className="text-sm whitespace-pre-wrap font-code">
-                      {isLoading ? (
-                        <ScriptContentSkeleton />
-                      ) : (
-                        <>
-                          <CharacterSummary />
-                          {highlightedScript}
-                        </>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </div>
           <aside className="lg:col-span-1 space-y-8 lg:sticky lg:top-8">
             <Card className="shadow-md">
