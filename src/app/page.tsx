@@ -20,6 +20,7 @@ import { saveAs } from 'file-saver';
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 type Character = {
@@ -513,6 +514,40 @@ export default function ScriptStylistPage() {
     </div>
   );
 
+  const CharacterListSkeleton = () => (
+    <div className="space-y-4">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <Skeleton className="h-5 w-5 rounded-full" />
+              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="h-4 w-1/5 ml-auto" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-12" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+          <Skeleton className="h-4 w-20" />
+        </div>
+      ))}
+    </div>
+  );
+  
+  const ScriptContentSkeleton = () => (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-1/3 mb-6" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    </div>
+  );
+
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body">
@@ -571,7 +606,7 @@ export default function ScriptStylistPage() {
                     <CardTitle className="font-headline text-xl">Styled Script</CardTitle>
                     <CardDescription>Review the script with character lines highlighted.</CardDescription>
                   </div>
-                  <Button onClick={handleRandomizeColors} variant="outline" size="sm" disabled={characters.length === 0}>
+                  <Button onClick={handleRandomizeColors} variant="outline" size="sm" disabled={characters.length === 0 || isLoading}>
                     <Shuffle className="mr-2 h-4 w-4" />
                     Randomize Colors
                   </Button>
@@ -579,8 +614,14 @@ export default function ScriptStylistPage() {
                 <CardContent>
                   <ScrollArea className="h-[600px] w-full rounded-lg border p-4 bg-muted/30">
                     <div ref={scriptContentRef} className="text-sm whitespace-pre-wrap font-code">
-                      <CharacterSummary />
-                      {highlightedScript}
+                      {isLoading ? (
+                        <ScriptContentSkeleton />
+                      ) : (
+                        <>
+                          <CharacterSummary />
+                          {highlightedScript}
+                        </>
+                      )}
                     </div>
                   </ScrollArea>
                 </CardContent>
@@ -596,41 +637,42 @@ export default function ScriptStylistPage() {
               <CardContent>
                 <div className="space-y-4">
                   <ScrollArea className="h-[350px] pr-3">
-                    <div className="space-y-4">
-                      {characters.map((char, index) => (
-                        <div key={char.name} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0"></div>
-                              <Label htmlFor={char.name} className="font-medium truncate cursor-pointer">{char.name}</Label>
-                              <Badge variant="secondary" className="ml-auto shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
+                    {isLoading ? (
+                      <CharacterListSkeleton />
+                    ) : (
+                      <div className="space-y-4">
+                        {characters.map((char) => (
+                          <div key={char.name} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0"></div>
+                                <Label htmlFor={char.name} className="font-medium truncate cursor-pointer">{char.name}</Label>
+                                <Badge variant="secondary" className="ml-auto shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 ml-2 shrink-0" onClick={() => handleDeleteCharacter(char.name)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                              </Button>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 ml-2 shrink-0" onClick={() => handleDeleteCharacter(char.name)}>
-                              <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                               <Label htmlFor={`artist-${char.name}`} className="text-xs whitespace-nowrap">Artist:</Label>
+                               <Input 
+                                  id={`artist-${char.name}`} 
+                                  placeholder="Artist Name" 
+                                  value={char.artistName} 
+                                  onChange={(e) => handleArtistNameChange(char.name, e.target.value)} 
+                                  className="h-8 text-xs focus-visible:ring-primary"
+                               />
+                            </div>
+                             <div className="text-xs text-muted-foreground font-medium">
+                                  Dialogues: {char.dialogueCount}
+                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                             <Label htmlFor={`artist-${char.name}`} className="text-xs whitespace-nowrap">Artist:</Label>
-                             <Input 
-                                id={`artist-${char.name}`} 
-                                placeholder="Artist Name" 
-                                value={char.artistName} 
-                                onChange={(e) => handleArtistNameChange(char.name, e.target.value)} 
-                                className="h-8 text-xs focus-visible:ring-primary"
-                             />
-                          </div>
-                           <div className="text-xs text-muted-foreground font-medium">
-                                Dialogues: {char.dialogueCount}
-                           </div>
-                        </div>
-                      ))}
-                      {isLoading && (
-                        <div className="text-center text-muted-foreground py-4 flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> Identifying...</div>
-                      )}
-                      {!isLoading && characters.length === 0 && (
-                        <div className="text-center text-muted-foreground py-4">Upload a script to see characters here.</div>
-                      )}
-                    </div>
+                        ))}
+                        {!isLoading && characters.length === 0 && (
+                          <div className="text-center text-muted-foreground py-4">Upload a script to see characters here.</div>
+                        )}
+                      </div>
+                    )}
                   </ScrollArea>
                   <div className="border-t pt-4">
                     <Label htmlFor="new-char-input" className="font-medium">Add a character manually</Label>
