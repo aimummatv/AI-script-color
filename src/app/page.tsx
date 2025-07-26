@@ -67,20 +67,30 @@ export default function ScriptStylistPage() {
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
-    // Sort by length descending to match longer names first (e.g., "CHARACTER A" before "CHARACTER")
+    // Sort by length descending to match longer names first (e.g., "CHARACTER A (V.O.)" before "CHARACTER A")
     const sortedCharList = [...charList].sort((a, b) => b.name.length - a.name.length);
-
+  
     for (const char of sortedCharList) {
-      const baseName = char.name.split('(')[0].trim();
-      // Exact match (for names with parentheticals)
-      if (trimmedLine.startsWith(char.name)) {
-        return char;
-      }
-      // Match base name followed by a colon or space (dialogue)
-      if (trimmedLine.startsWith(baseName + ":") || trimmedLine.startsWith(baseName + " ")) {
-        return char;
-      }
+        // The full name as it appears in the character list (e.g., "CHARACTER A (V.O.)")
+        const fullName = char.name.trim();
+        // The base name without parentheticals (e.g., "CHARACTER A")
+        const baseName = fullName.split('(')[0].trim();
+        
+        // Prioritize matching the full name first, which is more specific.
+        // It's a match if the line starts with the character's name, followed by a non-alphanumeric character (like a colon, parenthesis) or end of line.
+        const fullNameRegex = new RegExp(`^${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9])`);
+        if (fullNameRegex.test(trimmedLine)) {
+            return char;
+        }
+
+        // If the full name doesn't match, check for the base name.
+        // This is useful for rule-based matching or when the script is inconsistent.
+        const baseNameRegex = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9])`);
+        if (baseNameRegex.test(trimmedLine)) {
+            return char;
+        }
     }
+  
     return undefined;
   }, []);
 
@@ -105,15 +115,15 @@ export default function ScriptStylistPage() {
     lines.forEach(line => {
         const trimmedLine = line.trim();
         // Rule: A line is a character if it's in all caps, has no lowercase letters, and is relatively short.
-        if (trimmedLine.length > 0 && trimmedLine.length < 30 && /^[A-Z\s()]+$/.test(trimmedLine) && !/[a-z]/.test(trimmedLine)) {
-             // Exclude common scene headings
-            if (!/^(INT\.|EXT\.)/.test(trimmedLine) && trimmedLine !== 'CONTINUED') {
-                potentialCharacters.add(trimmedLine.replace(/\(.*\)/, '').trim());
+        if (trimmedLine.length > 0 && trimmedLine.length < 50 && /^[^a-z]+$/.test(trimmedLine) && !trimmedLine.startsWith('(')) {
+             // Exclude common scene headings and transitions
+            if (!/^(INT\.?\/EXT\.?|INT\.?|EXT\.?|FADE IN:|FADE OUT:|CUT TO:|CONTINUED|BACK TO:|DISSOLVE TO:)/.test(trimmedLine)) {
+                potentialCharacters.add(trimmedLine);
             }
         }
     });
     
-    return Array.from(potentialCharacters).map(name => ({ name, confidence: 0.8 }));
+    return Array.from(potentialCharacters).map(name => ({ name: name.trim(), confidence: 0.8 }));
   };
 
   const processIdentifiedCharacters = (
