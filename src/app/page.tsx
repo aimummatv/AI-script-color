@@ -65,13 +65,16 @@ export default function ScriptStylistPage() {
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
+    // Sort by length descending to match longer names first (e.g., "CHARACTER A" before "CHARACTER")
     const sortedCharList = [...charList].sort((a, b) => b.name.length - a.name.length);
 
     for (const char of sortedCharList) {
       const baseName = char.name.split('(')[0].trim();
+      // Exact match (for names with parentheticals)
       if (trimmedLine.startsWith(char.name)) {
         return char;
       }
+      // Match base name followed by a colon or space (dialogue)
       if (trimmedLine.startsWith(baseName + ":") || trimmedLine.startsWith(baseName + " ")) {
         return char;
       }
@@ -84,6 +87,7 @@ export default function ScriptStylistPage() {
     charList.forEach(c => counts[c.name] = 0);
     
     scriptContent.split('\n').forEach(line => {
+      // We pass a mapped version of charList to satisfy the type constraints of getCharacterFromLine
       const speakingChar = getCharacterFromLine(line, charList.map(c => ({...c, dialogueCount: 0, artistName: '', color: ''})));
       if (speakingChar) {
         counts[speakingChar.name] = (counts[speakingChar.name] || 0) + 1;
@@ -91,6 +95,44 @@ export default function ScriptStylistPage() {
     });
     return counts;
   }, [getCharacterFromLine]);
+
+  const identifyCharactersWithRules = (scriptContent: string): { name: string, confidence: number }[] => {
+    const lines = scriptContent.split('\n');
+    const potentialCharacters = new Set<string>();
+    
+    lines.forEach(line => {
+        const trimmedLine = line.trim();
+        // Rule: A line is a character if it's in all caps, has no lowercase letters, and is relatively short.
+        if (trimmedLine.length > 0 && trimmedLine.length < 30 && /^[A-Z\s()]+$/.test(trimmedLine) && !/[a-z]/.test(trimmedLine)) {
+             // Exclude common scene headings
+            if (!/^(INT\.|EXT\.)/.test(trimmedLine) && trimmedLine !== 'CONTINUED') {
+                potentialCharacters.add(trimmedLine.replace(/\(.*\)/, '').trim());
+            }
+        }
+    });
+    
+    return Array.from(potentialCharacters).map(name => ({ name, confidence: 0.8 }));
+  };
+
+  const processIdentifiedCharacters = (
+    identifiedChars: { name: string; confidence: number }[], 
+    scriptContent: string
+  ) => {
+    const dialogueCounts = calculateDialogueCounts(scriptContent, identifiedChars);
+    const newCharacters = identifiedChars
+      .sort((a, b) => (dialogueCounts[b.name] || 0) - (dialogueCounts[a.name] || 0))
+      .map((char, index) => ({
+        name: char.name,
+        confidence: char.confidence,
+        color: HIGHLIGHT_COLORS[index % HIGHLIGHT_COLORS.length],
+        artistName: "",
+        dialogueCount: dialogueCounts[char.name] || 0,
+      }));
+    
+    setCharacters(newCharacters);
+    return newCharacters;
+  };
+
 
   const handleProcessScript = async (scriptContent: string) => {
     if (!scriptContent.trim()) {
@@ -100,27 +142,32 @@ export default function ScriptStylistPage() {
     setIsLoading(true);
     setCharacters([]);
     setScript(scriptContent);
+
     try {
+      // Try AI-based identification first
       const result = await generateCharacterConfidenceScores({ script: scriptContent });
       if (result && result.characters) {
-        const dialogueCounts = calculateDialogueCounts(scriptContent, result.characters);
-        const newCharacters = result.characters
-        .sort((a, b) => b.confidence - a.confidence)
-        .map((char, index) => ({
-          name: char.name,
-          confidence: char.confidence,
-          color: HIGHLIGHT_COLORS[index % HIGHLIGHT_COLORS.length],
-          artistName: "",
-          dialogueCount: dialogueCounts[char.name] || 0,
-        }));
-        setCharacters(newCharacters);
-        toast({ title: "Success!", description: `${newCharacters.length} characters identified.` });
+        const newChars = processIdentifiedCharacters(result.characters, scriptContent);
+        toast({ title: "Success!", description: `AI identified ${newChars.length} characters.` });
       } else {
         throw new Error("Invalid response from AI.");
       }
     } catch (error) {
-      console.error("Error processing script:", error);
-      toast({ title: "Error", description: "Failed to process script. The AI may be unavailable.", variant: "destructive" });
+      console.error("AI Error, falling back to rule-based method:", error);
+      toast({ 
+        title: "AI Unavailable", 
+        description: "Using fallback method to find characters. Results may be less accurate.",
+        variant: "default" 
+      });
+      // Fallback to rule-based identification
+      const ruleBasedChars = identifyCharactersWithRules(scriptContent);
+      if(ruleBasedChars.length > 0){
+        const newChars = processIdentifiedCharacters(ruleBasedChars, scriptContent);
+        toast({ title: "Fallback Success!", description: `Identified ${newChars.length} characters with basic rules.` });
+      } else {
+        toast({ title: "No Characters Found", description: "Couldn't identify characters automatically. Please add them manually.", variant: "destructive" });
+      }
+
     } finally {
       setIsLoading(false);
     }
@@ -164,11 +211,11 @@ export default function ScriptStylistPage() {
     const newCharacter: Character = {
       name: trimmedName,
       color: HIGHLIGHT_COLORS[characters.length % HIGHLIGHT_COLORS.length],
-      confidence: 1.0,
+      confidence: 1.0, // Manually added characters are always 100%
       artistName: "",
       dialogueCount: dialogueCounts[trimmedName] || 0,
     };
-    setCharacters(prev => [...prev, newCharacter]);
+    setCharacters(prev => [...prev, newCharacter].sort((a,b) => b.dialogueCount - a.dialogueCount));
     setNewCharacterName("");
   };
 
@@ -186,6 +233,7 @@ export default function ScriptStylistPage() {
         return;
     };
     
+    // Create a copy and shuffle it
     const shuffledColors = [...HIGHLIGHT_COLORS].sort(() => Math.random() - 0.5);
     
     setCharacters(prev => 
@@ -232,16 +280,18 @@ export default function ScriptStylistPage() {
 
     toast({ title: "Generating PDF...", description: "This may take a moment."});
 
+    // Temporarily set body background for html2canvas to capture it correctly
     const body = document.body;
     const originalBackgroundColor = body.style.backgroundColor;
     body.style.backgroundColor = window.getComputedStyle(body).backgroundColor;
 
 
     html2canvas(scriptElement, {
-      scale: 2,
+      scale: 2, // Higher scale for better quality
       useCORS: true,
       backgroundColor: window.getComputedStyle(document.body).backgroundColor,
     }).then(canvas => {
+      // Restore original body background
       document.body.style.backgroundColor = originalBackgroundColor;
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -314,7 +364,7 @@ export default function ScriptStylistPage() {
                     },
                      tabStops: [
                         { type: TabStopType.CENTER, position: 4680 },
-                        { type: TabStopType.RIGHT, position: 8500 },
+                        { type: TabStopType.RIGHT, position: 8000 },
                     ],
                 });
             }),
@@ -527,6 +577,4 @@ export default function ScriptStylistPage() {
     </div>
   );
 
-    
-
-
+}
