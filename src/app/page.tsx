@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit, Settings, KeyRound, Users } from "lucide-react";
+import { Loader2, Trash2, Plus, Download, Clapperboard, FileUp, FileText, FileCode, Shuffle, BrainCircuit, Settings, KeyRound, Users, Pencil, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +72,8 @@ export default function ScriptStylistPage() {
   const [tempApiKey, setTempApiKey] = useState("");
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [isGroupedByCharacter, setIsGroupedByCharacter] = useState(false);
+  const [editingCharacterName, setEditingCharacterName] = useState<string | null>(null);
+  const [editingCharacterNewName, setEditingCharacterNewName] = useState("");
 
   useEffect(() => {
     const storedApiKey = localStorage.getItem("gemini_api_key");
@@ -112,14 +114,10 @@ export default function ScriptStylistPage() {
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
-    // Sort by length descending to match longer names first
     const sortedCharList = [...charList].sort((a, b) => b.name.length - a.name.length);
 
     for (const char of sortedCharList) {
         const charName = char.name.trim();
-        // A character is speaking if the line starts with their name (case-insensitive)
-        // and is followed by a non-alphanumeric character or nothing.
-        // This prevents "CHARACTER A" from matching a line for "CHARACTER AB".
         if (trimmedLine.toUpperCase().startsWith(charName.toUpperCase())) {
             const nextCharIndex = charName.length;
             if (trimmedLine.length === nextCharIndex || !/^[a-zA-Z0-9]/.test(trimmedLine[nextCharIndex])) {
@@ -155,11 +153,8 @@ export default function ScriptStylistPage() {
     
     lines.forEach(line => {
         const trimmedLine = line.trim();
-        // Rule: A line is a character if it's in all caps, has no lowercase letters, and is relatively short.
         if (trimmedLine.length > 0 && trimmedLine.length < 50 && /^[^a-z]+$/.test(trimmedLine) && !trimmedLine.startsWith('(')) {
-             // Exclude common scene headings and transitions
             if (!/^(INT\.?\/EXT\.?|INT\.?|EXT\.?|FADE IN:|FADE OUT:|CUT TO:|CONTINUED|BACK TO:|DISSOLVE TO:)/i.test(trimmedLine)) {
-                // Remove trailing indicators like (V.O.) or (CONT'D) for cleaner identification
                 const cleanName = trimmedLine.replace(/\s*\(.*\)$/, '').trim();
                 if(cleanName) potentialCharacters.add(cleanName);
             }
@@ -279,19 +274,17 @@ export default function ScriptStylistPage() {
       return;
     }
     
-    // We create a temporary list to calculate the dialogue count for just the new character
     const tempCharListForCounting = [{ name: trimmedName, confidence: 1.0 }];
     const dialogueCounts = calculateDialogueCounts(script, tempCharListForCounting);
   
     const newCharacter: Character = {
       name: trimmedName,
       color: HIGHLIGHT_COLORS[characters.length % HIGHLIGHT_COLORS.length],
-      confidence: 1.0, // Manually added characters are always 100%
+      confidence: 1.0, 
       artistName: "",
       dialogueCount: dialogueCounts[trimmedName] || 0,
     };
   
-    // Add the new character and re-sort the entire list by dialogue count
     setCharacters(prev => [...prev, newCharacter].sort((a,b) => b.dialogueCount - a.dialogueCount));
     setNewCharacterName("");
   };
@@ -303,6 +296,37 @@ export default function ScriptStylistPage() {
   const handleArtistNameChange = (characterName: string, artistName: string) => {
      setCharacters(prev => prev.map(c => c.name === characterName ? { ...c, artistName } : c));
   };
+
+  const handleEditCharacter = (name: string) => {
+    setEditingCharacterName(name);
+    setEditingCharacterNewName(name);
+  };
+
+  const handleSaveCharacterName = (oldName: string) => {
+    const newName = editingCharacterNewName.trim();
+    if (!newName) {
+      toast({ title: "Name cannot be empty", variant: "destructive" });
+      return;
+    }
+    if (newName !== oldName && characters.some(c => c.name.toLowerCase() === newName.toLowerCase())) {
+      toast({ title: "Character exists", description: "This name is already in use.", variant: "destructive" });
+      return;
+    }
+
+    const dialogueCounts = calculateDialogueCounts(script, [{ name: newName, confidence: 1.0 }]);
+
+    setCharacters(prev =>
+      prev.map(c =>
+        c.name === oldName
+          ? { ...c, name: newName, dialogueCount: dialogueCounts[newName] || 0 }
+          : c
+      ).sort((a,b) => b.dialogueCount - a.dialogueCount)
+    );
+
+    setEditingCharacterName(null);
+    setEditingCharacterNewName("");
+  };
+
 
   const handleRandomizeColors = () => {
     if (characters.length === 0) {
@@ -455,9 +479,9 @@ export default function ScriptStylistPage() {
                     ],
                 });
             }),
-            new Paragraph({ text: "" }), // Spacer
+            new Paragraph({ text: "" }),
             new Paragraph({ text: "Script", heading: HeadingLevel.HEADING_1 }),
-            new Paragraph({ text: "" }), // Spacer
+            new Paragraph({ text: "" }), 
         ];
 
         let scriptParagraphs: Paragraph[] = [];
@@ -484,7 +508,7 @@ export default function ScriptStylistPage() {
                         children: [new TextRun(line)],
                     }));
                 });
-                scriptParagraphs.push(new Paragraph({ text: "" })); // Spacer
+                scriptParagraphs.push(new Paragraph({ text: "" }));
             });
 
         } else {
@@ -735,36 +759,60 @@ export default function ScriptStylistPage() {
                     ) : (
                       <div className="space-y-4">
                         {characters.map((char) => (
-                           <div key={char.name} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50 transition-colors">
-                           <div className="grid grid-cols-[auto_1fr_auto] items-start gap-x-3">
-                             <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0 mt-0.5"></div>
-                             <div className="flex-1 min-w-0">
-                               <Label htmlFor={char.name} className="font-medium truncate cursor-pointer break-all">{char.name}</Label>
-                               <div className="text-xs text-muted-foreground font-medium mt-1">
-                                 Dialogues: {char.dialogueCount}
-                               </div>
-                             </div>
-                             <div className="flex items-center gap-2 shrink-0">
-                               <Badge variant="secondary" className="shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
-                             </div>
-                           </div>
-                           <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3">
-                              <div className="w-5"></div>
-                              <div className="flex items-center gap-2">
-                                <Label htmlFor={`artist-${char.name}`} className="text-xs whitespace-nowrap">Artist:</Label>
-                                <Input 
-                                   id={`artist-${char.name}`} 
-                                   placeholder="Artist Name" 
-                                   value={char.artistName} 
-                                   onChange={(e) => handleArtistNameChange(char.name, e.target.value)} 
-                                   className="h-8 text-xs focus-visible:ring-primary"
-                                />
+                          <div key={char.name} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50 transition-colors">
+                            <div className="flex items-start gap-3">
+                              <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0 mt-0.5"></div>
+                              <div className="flex-1 min-w-0">
+                                {editingCharacterName === char.name ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={editingCharacterNewName}
+                                      onChange={(e) => setEditingCharacterNewName(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveCharacterName(char.name);
+                                        if (e.key === 'Escape') setEditingCharacterName(null);
+                                      }}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                    <Button size="icon" className="h-8 w-8" onClick={() => handleSaveCharacterName(char.name)}>
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Label className="font-medium break-all">{char.name}</Label>
+                                )}
+                                <div className="text-xs text-muted-foreground font-medium mt-1">
+                                  Dialogues: {char.dialogueCount}
+                                </div>
                               </div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteCharacter(char.name)}>
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
-                           </div>
-                         </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Badge variant="secondary" className="shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
+                                {editingCharacterName !== char.name && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCharacter(char.name)}>
+                                    <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                </Button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3">
+                               <div className="w-5"></div>
+                               <div className="flex items-center gap-2">
+                                 <Label htmlFor={`artist-${char.name}`} className="text-xs whitespace-nowrap">Artist:</Label>
+                                 <Input 
+                                    id={`artist-${char.name}`} 
+                                    placeholder="Artist Name" 
+                                    value={char.artistName} 
+                                    onChange={(e) => handleArtistNameChange(char.name, e.target.value)} 
+                                    className="h-8 text-xs focus-visible:ring-primary"
+                                    disabled={editingCharacterName === char.name}
+                                 />
+                               </div>
+                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteCharacter(char.name)}>
+                                 <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                               </Button>
+                            </div>
+                          </div>
                         ))}
                         {!isLoading && characters.length === 0 && (
                           <div className="text-center text-muted-foreground py-4">Upload a script to see characters here.</div>
