@@ -603,7 +603,7 @@ export default function ScriptStylistPage() {
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0"></div>
                               <Label htmlFor={char.name} className="font-medium truncate cursor-pointer">{char.name}</Label>
-                              <Badge variant="secondary" className="ml-auto">{(char.confidence * 100).toFixed(0)}%</Badge>
+                              <Badge variant="secondary" className="ml-auto shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
                             </div>
                             <Button variant="ghost" size="icon" className="h-7 w-7 ml-2 shrink-0" onClick={() => handleDeleteCharacter(char.name)}>
                               <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
