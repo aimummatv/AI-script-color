@@ -16,7 +16,7 @@ const GenerateCharacterConfidenceScoresInputSchema = z.object({
 export type GenerateCharacterConfidenceScoresInput = z.infer<typeof GenerateCharacterConfidenceScoresInputSchema>;
 
 const CharacterSchema = z.object({
-  name: z.string().describe('The name of the character.'),
+  name: z.string().describe('The name of the character. This should include parenthetical descriptions if present in the script (e.g., "अंजलि (छोटी बहू)").'),
   confidence: z.number().describe('The confidence score (0-1) of the character identification.'),
 });
 
@@ -35,7 +35,7 @@ const prompt = ai.definePrompt({
   output: {schema: GenerateCharacterConfidenceScoresOutputSchema},
   prompt: `You are a script analysis expert. Your task is to identify the characters in a given script and provide a confidence score (0 to 1) for each character identified.
 
-Analyze the following script and identify the characters. Provide a confidence score for each character.
+Analyze the following script and identify the characters. It is important to include the full character name, including any parenthetical descriptions (e.g., "अंजलि (छोटी बहू)"). Do not just extract the name, extract the full entry from the character list or dialogue line.
 
 Script: {{{script}}}
 
@@ -43,11 +43,11 @@ Return the output as a JSON array of characters with their names and confidence 
 
 Example:
 [{
-  "name": "Character A",
+  "name": "अंजलि (छोटी बहू)",
   "confidence": 0.95
 }, {
-  "name": "Character B",
-  "confidence": 0.80
+  "name": "कमला देवी (सास)",
+  "confidence": 0.92
 }]
 `,
 });
@@ -63,3 +63,5 @@ const generateCharacterConfidenceScoresFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    

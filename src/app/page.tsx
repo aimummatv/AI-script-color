@@ -65,17 +65,27 @@ export default function ScriptStylistPage() {
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
-    // Prioritize exact match
-    let speakingChar = charList.find(char => trimmedLine.startsWith(char.name));
-    if (speakingChar) return speakingChar;
+    // The AI might return "Character (description)". We should match against the full name first, then just the name.
+    // The line itself might be "Character (description): Dialogue..." or "Character: Dialogue..."
+    
+    // Sort by length descending to match longer names first, e.g. "कमला देवी" before "कमला"
+    const sortedCharList = [...charList].sort((a, b) => b.name.length - a.name.length);
 
-    // Fallback to looser match if no exact match is found
-    speakingChar = charList.find(char => {
-      const charBaseName = char.name.split('(')[0].trim();
-      return trimmedLine.startsWith(charBaseName);
-    });
-    return speakingChar;
+    for (const char of sortedCharList) {
+      const baseName = char.name.split('(')[0].trim();
+      // Exact match "अंजलि (छोटी बहू)" with line starting with "अंजलि (छोटी बहू):"
+      if (trimmedLine.startsWith(char.name)) {
+        return char;
+      }
+      // Match "अंजलि" with line starting with "अंजलि:"
+      if (trimmedLine.startsWith(baseName + ":") || trimmedLine.startsWith(baseName + " ")) {
+         // check for ":" or space to avoid partial matches
+        return char;
+      }
+    }
+    return undefined;
   }, []);
+
 
   const highlightedScript = useMemo(() => {
     if (!script) {
@@ -287,3 +297,5 @@ export default function ScriptStylistPage() {
     </div>
   );
 }
+
+    
