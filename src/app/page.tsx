@@ -522,14 +522,17 @@ export default function ScriptStylistPage() {
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <Skeleton className="h-5 w-5 rounded-full" />
               <Skeleton className="h-4 w-3/5" />
-              <Skeleton className="h-4 w-1/5 ml-auto" />
             </div>
+            <Skeleton className="h-4 w-1/5 ml-auto" />
           </div>
           <div className="flex items-center gap-2">
             <Skeleton className="h-4 w-12" />
             <Skeleton className="h-8 w-full" />
           </div>
-          <Skeleton className="h-4 w-20" />
+           <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-6 w-6" />
+            </div>
         </div>
       ))}
     </div>
@@ -621,7 +624,7 @@ export default function ScriptStylistPage() {
               <CardContent>
                 <ScrollArea className="h-[600px] w-full rounded-lg border p-4 bg-muted/30">
                   <div ref={scriptContentRef} className="text-sm whitespace-pre-wrap font-code h-full">
-                    {isLoading ? (
+                    {isLoading && !script ? (
                       <ScriptContentSkeleton />
                     ) : script ? (
                       <>
@@ -651,32 +654,35 @@ export default function ScriptStylistPage() {
                       <div className="space-y-4">
                         {characters.map((char) => (
                            <div key={char.name} className="flex flex-col gap-3 p-3 rounded-md border bg-secondary/50 transition-colors">
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0"></div>
-                                    <Label htmlFor={char.name} className="font-medium truncate cursor-pointer flex-1">{char.name}</Label>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <Badge variant="secondary" className="shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteCharacter(char.name)}>
-                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                               <Label htmlFor={`artist-${char.name}`} className="text-xs whitespace-nowrap">Artist:</Label>
-                               <Input 
-                                  id={`artist-${char.name}`} 
-                                  placeholder="Artist Name" 
-                                  value={char.artistName} 
-                                  onChange={(e) => handleArtistNameChange(char.name, e.target.value)} 
-                                  className="h-8 text-xs focus-visible:ring-primary"
-                               />
-                            </div>
-                             <div className="text-xs text-muted-foreground font-medium">
-                                  Dialogues: {char.dialogueCount}
+                           <div className="grid grid-cols-[auto_1fr_auto] items-start gap-x-3">
+                             <div style={{ backgroundColor: `#${char.color}` }} className="h-5 w-5 rounded-full border shrink-0 mt-0.5"></div>
+                             <div className="flex-1 min-w-0">
+                               <Label htmlFor={char.name} className="font-medium truncate cursor-pointer break-all">{char.name}</Label>
+                               <div className="text-xs text-muted-foreground font-medium mt-1">
+                                 Dialogues: {char.dialogueCount}
+                               </div>
                              </div>
-                          </div>
+                             <div className="flex items-center gap-2 shrink-0">
+                               <Badge variant="secondary" className="shrink-0">{(char.confidence * 100).toFixed(0)}%</Badge>
+                             </div>
+                           </div>
+                           <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3">
+                              <div className="w-5"></div>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`artist-${char.name}`} className="text-xs whitespace-nowrap">Artist:</Label>
+                                <Input 
+                                   id={`artist-${char.name}`} 
+                                   placeholder="Artist Name" 
+                                   value={char.artistName} 
+                                   onChange={(e) => handleArtistNameChange(char.name, e.target.value)} 
+                                   className="h-8 text-xs focus-visible:ring-primary"
+                                />
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteCharacter(char.name)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                              </Button>
+                           </div>
+                         </div>
                         ))}
                         {!isLoading && characters.length === 0 && (
                           <div className="text-center text-muted-foreground py-4">Upload a script to see characters here.</div>
