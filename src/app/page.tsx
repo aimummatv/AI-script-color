@@ -67,19 +67,19 @@ export default function ScriptStylistPage() {
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
-    // Sort by length descending to match longer names first (e.g., "CHARACTER A (V.O.)" before "CHARACTER A")
+    // Sort by length descending to match longer names first
     const sortedCharList = [...charList].sort((a, b) => b.name.length - a.name.length);
-  
+
     for (const char of sortedCharList) {
         const charName = char.name.trim();
-        // A character is speaking if the line starts with their name and is followed by a non-alphanumeric character (e.g., a colon, a space then a paren) or the end of the line.
-        // This prevents matching "CHARACTER A" for "CHARACTER AB"
-        const regex = new RegExp(`^${charName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9])`);
-        if (regex.test(trimmedLine)) {
-            return char;
+        if (trimmedLine.startsWith(charName)) {
+            // Check if it's a perfect match or followed by a non-alphabetic character
+            if (trimmedLine.length === charName.length || !/[a-zA-Z]/.test(trimmedLine[charName.length])) {
+                return char;
+            }
         }
     }
-  
+
     return undefined;
   }, []);
 
@@ -380,7 +380,7 @@ export default function ScriptStylistPage() {
                     },
                      tabStops: [
                         { type: TabStopType.CENTER, position: 4500 },
-                        { type: TabStopType.RIGHT, position: 8500 },
+                        { type: TabStopType.RIGHT, position: 7500 },
                     ],
                 });
             }),
@@ -606,5 +606,6 @@ export default function ScriptStylistPage() {
 
 }
  
+    
 
     
