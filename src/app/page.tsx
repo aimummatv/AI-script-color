@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import mammoth from "mammoth";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType, TabStopType } from "docx";
+import { Document, Packer, Paragraph, TextRun, ShadingType, HeadingLevel, AlignmentType, TabStopType, LineRuleType } from "docx";
 import { saveAs } from 'file-saver';
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
@@ -114,18 +114,19 @@ export default function ScriptStylistPage() {
 
   const getCharacterFromLine = useCallback((line: string, charList: Character[]) => {
     const trimmedLine = line.trim();
+    // Sort characters by name length descending to match longer names first
     const sortedCharList = [...charList].sort((a, b) => b.name.length - a.name.length);
-
+  
     for (const char of sortedCharList) {
-        const charName = char.name.trim();
-        if (trimmedLine.toUpperCase().startsWith(charName.toUpperCase())) {
-            const nextCharIndex = charName.length;
-            if (trimmedLine.length === nextCharIndex || !/^[a-zA-Z0-9]/.test(trimmedLine[nextCharIndex])) {
-                 return char;
-            }
+      // Check if the line starts with the character name (case-insensitive)
+      if (trimmedLine.toUpperCase().startsWith(char.name.toUpperCase())) {
+        const nextCharIndex = char.name.length;
+        // Ensure what follows the name is not a letter or number, to avoid partial matches
+        if (trimmedLine.length === nextCharIndex || !/[a-zA-Z0-9]/.test(trimmedLine[nextCharIndex])) {
+          return char;
         }
+      }
     }
-
     return undefined;
   }, []);
 
@@ -456,7 +457,10 @@ export default function ScriptStylistPage() {
 
     try {
         const characterParagraphs = [
-            new Paragraph({ text: "Character List", heading: HeadingLevel.HEADING_1 }),
+            new Paragraph({ 
+              text: "Character List", 
+              heading: HeadingLevel.HEADING_1,
+            }),
             ...characters.map(char => {
                 const textRuns = [
                     new TextRun({
@@ -492,6 +496,9 @@ export default function ScriptStylistPage() {
         ];
 
         let scriptParagraphs: Paragraph[] = [];
+        const scriptParagraphOptions = {
+            spacing: { line: 360, lineRule: LineRuleType.AUTO },
+        };
 
         if (isGroupedByCharacter) {
              characters.forEach(char => {
@@ -512,6 +519,7 @@ export default function ScriptStylistPage() {
                 
                 dialogueLines.forEach(line => {
                     scriptParagraphs.push(new Paragraph({
+                        ...scriptParagraphOptions,
                         children: [new TextRun(line)],
                     }));
                 });
@@ -522,6 +530,7 @@ export default function ScriptStylistPage() {
                  scriptParagraphs.push(new Paragraph({ text: "Unassigned Dialogue", heading: HeadingLevel.HEADING_2 }));
                  unassignedLines.forEach(line => {
                     scriptParagraphs.push(new Paragraph({
+                        ...scriptParagraphOptions,
                         children: [new TextRun(line)],
                     }));
                  });
@@ -532,6 +541,7 @@ export default function ScriptStylistPage() {
                 const char = getCharacterFromLine(line, characters);
                 if (char) {
                     return new Paragraph({
+                        ...scriptParagraphOptions,
                         children: [new TextRun(line)],
                         shading: {
                             type: ShadingType.CLEAR,
@@ -540,12 +550,22 @@ export default function ScriptStylistPage() {
                         },
                     });
                 }
-                return new Paragraph({ children: [new TextRun(line)] });
+                return new Paragraph({ ...scriptParagraphOptions, children: [new TextRun(line)] });
             });
         }
 
 
         const doc = new Document({
+            styles: {
+                default: {
+                    document: {
+                        run: {
+                            size: 24, // 12pt
+                            font: "Nirmala UI",
+                        },
+                    },
+                },
+            },
             sections: [{
                 properties: {},
                 children: [...characterParagraphs, ...scriptParagraphs],
@@ -927,3 +947,5 @@ export default function ScriptStylistPage() {
     </div>
   );
 }
+
+    
