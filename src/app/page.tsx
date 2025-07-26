@@ -269,7 +269,7 @@ export default function ScriptStylistPage() {
                         text: char.name,
                         bold: true,
                     }),
-                    new TextRun({ text: "\t-\t", }),
+                    new TextRun({ text: "\t", }),
                     new TextRun({
                         text: char.artistName || '',
                     }),
@@ -286,9 +286,9 @@ export default function ScriptStylistPage() {
                         fill: char.color,
                         color: "auto",
                     },
-                    tabStops: [
-                        { type: TabStopType.LEFT, position: TabStopPosition.MAX / 2 },
-                        { type: TabStopType.RIGHT, position: TabStopPosition.MAX },
+                     tabStops: [
+                        { type: TabStopType.CENTER, position: 4680 },
+                        { type: TabStopType.RIGHT, position: 9360 },
                     ],
                 });
             }),
@@ -491,4 +491,5 @@ export default function ScriptStylistPage() {
       </main>
     </div>
   );
-}
+
+    
